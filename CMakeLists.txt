@@ -57,7 +57,12 @@ if(WIN32)
   endif()
 else()
   # Client & tool projects are currently only supported on Windows.
-  set(OPENKO_BUILD_CLIENT OFF)
+  # EXPERIMENTAL (macOS port): allow forcing the client on for the port effort.
+  # See docs/MAC_PORT_ROADMAP.md. Tools stay off (MFC). Default off.
+  option(OPENKO_EXPERIMENTAL_NONWIN_CLIENT "EXPERIMENTAL: build WarFare client on non-Windows (macOS port WIP)" OFF)
+  if(NOT OPENKO_EXPERIMENTAL_NONWIN_CLIENT)
+    set(OPENKO_BUILD_CLIENT OFF)
+  endif()
   set(OPENKO_BUILD_CLIENT_TOOLS OFF)
   set(OPENKO_BUILD_TOOLS OFF)
 endif()

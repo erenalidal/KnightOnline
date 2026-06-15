@@ -57,3 +57,6 @@ last-build-states/
 
 # Do not ignore CMakeLists.txt
 !CMakeLists.txt
+
+# macOS port: dxvk-native build-time clone (see docs/patches/)
+deps/dxvk-native-src/

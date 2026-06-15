@@ -210,13 +210,19 @@ source_group("UI" FILES ${N3BASE_COMMON_UI_SOURCES})
 source_group("Weather" FILES ${N3BASE_COMMON_WEATHER_SOURCES} ${N3BASE_TOOL_WEATHER_SOURCES})
 
 # Link in the libs that we use
-set(N3BASE_COMMON_LIBS_PRIVATE
-  d3d9.lib
-  d3dx9.lib
-  dinput8.lib
-  dsound.lib
-  dxguid.lib
-)
+# Windows DirectX import libraries — MSVC only.
+# On non-Windows (macOS port) D3D9 types come from dxvk-native headers instead;
+# see docs/MAC_PORT_ROADMAP.md and the dxvk header wiring further below.
+set(N3BASE_COMMON_LIBS_PRIVATE)
+if (MSVC)
+  list(APPEND N3BASE_COMMON_LIBS_PRIVATE
+    d3d9.lib
+    d3dx9.lib
+    dinput8.lib
+    dsound.lib
+    dxguid.lib
+  )
+endif ()
 
 # Setup warning levels
 set(N3BASE_COMMON_COMPILE_OPTIONS
@@ -250,6 +256,28 @@ if(OPENKO_BUILD_CLIENT)
   target_include_directories(N3Base_client INTERFACE
     "${CMAKE_CURRENT_SOURCE_DIR}/../" # so we can access <N3Base/...>
   )
+
+  # macOS/non-Windows port: provide DirectX 9 headers via dxvk-native +
+  # our compat shims, so <d3dx9.h>/<d3d9.h>/<windows.h> resolve on clang.
+  # See docs/MAC_PORT_ROADMAP.md.
+  if (NOT WIN32)
+    set(_DXVK "${CMAKE_SOURCE_DIR}/deps/dxvk-native-src")
+    # D3DX9 yardımcı fonksiyon şimi + WinCrypt (RC4/SHA-1) gerçek implementasyonu.
+    target_sources(N3Base_client PRIVATE
+      "${CMAKE_SOURCE_DIR}/src/platform/d3dx9-compat/d3dx9_tex_shim.cpp"
+      "${CMAKE_SOURCE_DIR}/src/platform/win-compat/wincrypt_compat.cpp"
+    )
+    target_include_directories(N3Base_client PUBLIC
+      # Our compat layer FIRST so <d3dx9.h>/<mmsystem.h> resolve to our shims.
+      "${CMAKE_SOURCE_DIR}/src/platform/dx-compat"
+      "${CMAKE_SOURCE_DIR}/src/platform/win-compat"
+      "${CMAKE_SOURCE_DIR}/src/platform"
+      # dxvk-native self-contained DirectX 9 + Windows base shims.
+      "${_DXVK}/include/native"
+      "${_DXVK}/include/native/windows"
+      "${_DXVK}/include/native/directx"
+    )
+  endif ()
 
   target_precompile_headers(N3Base_client PRIVATE "StdAfxBase.h")
   target_compile_options(N3Base_client PRIVATE ${N3BASE_COMMON_COMPILE_OPTIONS})

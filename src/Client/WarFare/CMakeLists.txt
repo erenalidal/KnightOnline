@@ -310,6 +310,31 @@ add_executable(WarFare
   WarFareMain.cpp
 )
 
+# macOS/non-Windows: main() giriş noktası + dxvk-native D3D9 kütüphanesi.
+# See docs/MAC_PORT_ROADMAP.md.
+if (NOT WIN32)
+  target_sources(WarFare PRIVATE
+    "${CMAKE_SOURCE_DIR}/src/platform/mac-entry/mac_platform.cpp"
+    "${CMAKE_SOURCE_DIR}/src/platform/mac-entry/mac_window.cpp"
+  )
+  # dxvk-native libdxvk_d3d9 (Direct3DCreate9 + D3D9→Vulkan→MoltenVK→Metal).
+  set(_DXVK_LIB "${CMAKE_SOURCE_DIR}/deps/dxvk-native-src/build-mac/src/d3d9/libdxvk_d3d9.0.dylib")
+  target_link_libraries(WarFare PRIVATE "${_DXVK_LIB}")
+  # SDL2 (pencere + olaylar; dxvk SDL2 WSI ile uyumlu).
+  find_package(SDL2 QUIET)
+  if (SDL2_FOUND)
+    target_link_libraries(WarFare PRIVATE SDL2::SDL2)
+  else ()
+    target_include_directories(WarFare PRIVATE /opt/homebrew/include /opt/homebrew/include/SDL2)
+    target_link_libraries(WarFare PRIVATE /opt/homebrew/lib/libSDL2.dylib)
+  endif ()
+  # MoltenVK (Vulkan→Metal) + Vulkan loader runtime'da bulunabilsin.
+  set_target_properties(WarFare PROPERTIES
+    BUILD_RPATH   "/opt/homebrew/lib;${CMAKE_SOURCE_DIR}/deps/dxvk-native-src/build-mac/src/d3d9"
+    INSTALL_RPATH "/opt/homebrew/lib;${CMAKE_SOURCE_DIR}/deps/dxvk-native-src/build-mac/src/d3d9"
+  )
+endif ()
+
 source_group("Scene" FILES ${WARFARE_SCENE_SOURCES})
 source_group("Scene/Login" FILES ${WARFARE_SCENE_LOGIN_SOURCES})
 source_group("Scene/Nation selection" FILES ${WARFARE_SCENE_NATION_SELECTION_SOURCES})
@@ -358,6 +383,20 @@ target_precompile_headers(WarFare.Core PRIVATE StdAfx.h)
 target_include_directories(WarFare.Core PUBLIC
   "${TARGET_CLIENT_CONFIG_DIR}/"    # we copied warfare_config.h here, so we should be able to access it too
 )
+
+# macOS/non-Windows port: DirectX 9 + Win32 compat headers (dxvk-native + shims).
+# See docs/MAC_PORT_ROADMAP.md.
+if (NOT WIN32)
+  set(_DXVK "${CMAKE_SOURCE_DIR}/deps/dxvk-native-src")
+  target_include_directories(WarFare.Core PUBLIC
+    "${CMAKE_SOURCE_DIR}/src/platform/dx-compat"
+    "${CMAKE_SOURCE_DIR}/src/platform/win-compat"
+    "${CMAKE_SOURCE_DIR}/src/platform"
+    "${_DXVK}/include/native"
+    "${_DXVK}/include/native/windows"
+    "${_DXVK}/include/native/directx"
+  )
+endif ()
 
 # Setup dependencies
 target_link_libraries(WarFare.Core PUBLIC

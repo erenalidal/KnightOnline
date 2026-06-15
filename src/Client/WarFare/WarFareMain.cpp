@@ -22,6 +22,10 @@
 
 #include <windowsx.h>
 
+#if !defined(_WIN32)
+#include <mac-entry/mac_window.h>
+#endif
+
 HWND CreateMainWindow(HINSTANCE hInstance);
 LRESULT CALLBACK WndProcMain(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -159,6 +163,14 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstanc
 
 	while (WM_QUIT != msg.message)
 	{
+#if !defined(_WIN32)
+		// macOS: Win32 mesaj sistemi yok; SDL olaylarını pompala, kapatınca çık.
+		if (KO_PumpMacEvents())
+			break;
+		CGameProcedure::TickActive();
+		CGameProcedure::RenderActive();
+		continue;
+#endif
 		// Use PeekMessage() if the app is active, so we can use idle time to
 		// render the scene. Else, use GetMessage() to avoid eating CPU time.
 		bGotMsg = PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE);
@@ -241,8 +253,13 @@ HWND CreateMainWindow(HINSTANCE hInstance)
 		iViewHeight = CN3Base::s_Options.iViewHeight;
 	}
 
+#if !defined(_WIN32)
+	// macOS: gerçek bir SDL2 Vulkan penceresi oluştur (dxvk-native present hedefi).
+	return KO_CreateMacWindow(iViewWidth, iViewHeight, "Knight OnLine (macOS)");
+#else
 	return ::CreateWindowExA(
 		0, wc.lpszClassName, "Knight OnLine Client", style, 0, 0, iViewWidth, iViewHeight, nullptr, nullptr, hInstance, nullptr);
+#endif
 }
 
 /*

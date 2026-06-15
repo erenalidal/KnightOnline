@@ -3,6 +3,23 @@
 #include <cassert>
 #include <cstdio> // SEEK_SET, SEEK_CUR, SEEK_END
 
+#if !defined(_WIN32)
+#include <string>
+// macOS/Linux port: KO yolları Windows ters-slash'ı kullanır ('Data\x.tbl.tmp').
+// POSIX'te '\' ayraç olmadığından, FileReader ile TUTARLI olması için burada da
+// '\' -> '/' dönüştürüyoruz (aksi halde yazılan/okunan tmp yolu uyuşmaz). (mac-port)
+static std::filesystem::path KO_NormalizePath(const std::filesystem::path& path)
+{
+	std::string s = path.string();
+	for (char& c : s)
+		if (c == '\\')
+			c = '/';
+	return std::filesystem::path(s);
+}
+#else
+static inline const std::filesystem::path& KO_NormalizePath(const std::filesystem::path& path) { return path; }
+#endif
+
 FileWriter::FileWriter()
 {
 }
@@ -22,7 +39,7 @@ bool FileWriter::OpenExisting(const std::filesystem::path& path)
 #if defined(_MSC_VER) || defined(__MINGW32__)
 	_wfopen_s(&fileHandle, path.native().c_str(), L"rb+");
 #else
-	fileHandle = fopen(path.native().c_str(), "rb+");
+	fileHandle = fopen(KO_NormalizePath(path).native().c_str(), "rb+");
 #endif
 	if (fileHandle == nullptr)
 		return false;
@@ -60,7 +77,7 @@ bool FileWriter::Create(const std::filesystem::path& path)
 #if defined(_MSC_VER) || defined(__MINGW32__)
 	_wfopen_s(&fileHandle, path.native().c_str(), L"wb");
 #else
-	fileHandle = fopen(path.native().c_str(), "wb");
+	fileHandle = fopen(KO_NormalizePath(path).native().c_str(), "wb");
 #endif
 
 	if (fileHandle == nullptr)

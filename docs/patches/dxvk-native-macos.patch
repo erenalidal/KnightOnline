@@ -1,0 +1,201 @@
+diff --git a/src/d3d9/meson.build b/src/d3d9/meson.build
+index 44a6371..73fd680 100644
+--- a/src/d3d9/meson.build
++++ b/src/d3d9/meson.build
+@@ -57,7 +57,8 @@ d3d9_src = [
+ d3d9_ld_args      = []
+ d3d9_link_depends = []
+ 
+-if platform != 'windows'
++# macOS (ld64) --version-script desteklemez; symbol versioning yalnızca Linux/ELF için.
++if platform != 'windows' and host_machine.system() != 'darwin'
+   d3d9_ld_args      += [ '-Wl,--version-script', join_paths(meson.current_source_dir(), 'd3d9.sym') ]
+   d3d9_link_depends += files('d3d9.sym')
+ endif
+diff --git a/src/dxvk/dxvk_context.cpp b/src/dxvk/dxvk_context.cpp
+index 2b5f7f1..f348d56 100644
+--- a/src/dxvk/dxvk_context.cpp
++++ b/src/dxvk/dxvk_context.cpp
+@@ -7702,7 +7702,14 @@ namespace dxvk {
+ 
+         m_cmd->track(m_state.vi.vertexBuffers[binding].buffer(), DxvkAccess::Read);
+       } else {
++#if defined(__APPLE__)
++        // MoltenVK/Metal nullDescriptor desteklemez; boş binding'e VK_NULL_HANDLE
++        // bağlamak MVKBuffer::getMTLBuffer()'da çökmeye yol açar. Onun yerine
++        // dxvk'nın dummy buffer'ını bağlıyoruz. (mac-port)
++        buffers[i] = m_common->dummyResources().bufferInfo().buffer;
++#else
+         buffers[i] = VK_NULL_HANDLE;
++#endif
+         offsets[i] = 0;
+         lengths[i] = 0;
+         strides[i] = 0;
+diff --git a/src/dxvk/dxvk_device_info.cpp b/src/dxvk/dxvk_device_info.cpp
+index d42d3b8..132df63 100644
+--- a/src/dxvk/dxvk_device_info.cpp
++++ b/src/dxvk/dxvk_device_info.cpp
+@@ -737,7 +737,16 @@ namespace dxvk {
+         if (f.extensionEnabled)
+           message += str::format(" (extension: ", f.extensionEnabled->extensionName, ")");
+ 
++#if defined(__APPLE__)
++        // mac-port: MoltenVK birçok Vulkan core feature'ını desteklemez (Metal
++        // sınırları). D3D9 çoğunu gerçekte kullanmadığından, cihazı reddetmek
++        // yerine uyarıp devam ediyoruz; dxvk yalnızca desteklenen feature'ları
++        // etkinleştirir.
++        Logger::warn(str::format("mac-port: ignoring missing feature '", f.readableName, "'"));
++        continue;
++#else
+         return message;
++#endif
+       }
+     }
+ 
+@@ -808,7 +817,12 @@ namespace dxvk {
+       ENABLE_FEATURE(core.features, fillModeNonSolid, true),
+       ENABLE_FEATURE(core.features, fragmentStoresAndAtomics, true),
+       ENABLE_FEATURE(core.features, fullDrawIndexUint32, true),
++#if defined(__APPLE__)
++      // MoltenVK/Metal: geometry shader yok; D3D9 gerektirmediği için opsiyonel.
++      ENABLE_FEATURE(core.features, geometryShader, false),
++#else
+       ENABLE_FEATURE(core.features, geometryShader, true),
++#endif
+       ENABLE_FEATURE(core.features, imageCubeArray, true),
+       ENABLE_FEATURE(core.features, independentBlend, true),
+       ENABLE_FEATURE(core.features, largePoints, false),
+diff --git a/src/dxvk/dxvk_instance.cpp b/src/dxvk/dxvk_instance.cpp
+index 56d9ccc..4ab2d8c 100644
+--- a/src/dxvk/dxvk_instance.cpp
++++ b/src/dxvk/dxvk_instance.cpp
+@@ -239,6 +239,13 @@ namespace dxvk {
+       for (const auto& ext : extensionsEnabled)
+         extensionNames.push_back(ext.extensionName);
+ 
++#if defined(__APPLE__)
++      // MoltenVK = Vulkan portability subset. Instance'ın portability ICD'lerini
++      // sıralayabilmesi için bu extension + flag şart; yoksa vkCreateInstance
++      // VK_ERROR_INCOMPATIBLE_DRIVER döner.
++      extensionNames.push_back("VK_KHR_portability_enumeration");
++#endif
++
+       VkApplicationInfo appInfo = { VK_STRUCTURE_TYPE_APPLICATION_INFO };
+       appInfo.pApplicationName      = appName.c_str();
+       appInfo.applicationVersion    = flags.raw();
+@@ -252,6 +259,9 @@ namespace dxvk {
+       info.ppEnabledLayerNames      = layerNames.data();
+       info.enabledExtensionCount    = extensionNames.size();
+       info.ppEnabledExtensionNames  = extensionNames.data();
++#if defined(__APPLE__)
++      info.flags |= 0x00000001; // VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
++#endif
+ 
+       VkResult status = m_vkl->vkCreateInstance(&info, nullptr, &instance);
+ 
+diff --git a/src/util/util_env.cpp b/src/util/util_env.cpp
+index de5634f..522a8cd 100644
+--- a/src/util/util_env.cpp
++++ b/src/util/util_env.cpp
+@@ -10,6 +10,11 @@
+ #include <sys/sysctl.h>
+ #include <unistd.h>
+ #include <limits.h>
++#elif defined(__APPLE__)
++#include <unistd.h>
++#include <limits.h>
++#include <pthread.h>
++#include <mach-o/dyld.h>
+ #endif
+ 
+ #include "util_env.h"
+@@ -104,6 +109,12 @@ namespace dxvk::env {
+     }
+ 
+     return std::string(exePath);
++#elif defined(__APPLE__)
++    char exePath[PATH_MAX] = {};
++    uint32_t size = sizeof(exePath);
++    if (_NSGetExecutablePath(exePath, &size) != 0)
++      return "";
++    return std::string(exePath);
+ #endif
+   }
+   
+@@ -124,6 +135,11 @@ namespace dxvk::env {
+ 
+       SetThreadDescription(::GetCurrentThread(), wideName.data());
+     }
++#elif defined(__APPLE__)
++    std::array<char, 16> posixName = {};
++    dxvk::str::strlcpy(posixName.data(), name.c_str(), 16);
++    // macOS: pthread_setname_np mevcut thread için, tek argüman.
++    ::pthread_setname_np(posixName.data());
+ #else
+     std::array<char, 16> posixName = {};
+     dxvk::str::strlcpy(posixName.data(), name.c_str(), 16);
+diff --git a/src/util/util_win32_compat.h b/src/util/util_win32_compat.h
+index b706dca..7a4b4a1 100644
+--- a/src/util/util_win32_compat.h
++++ b/src/util/util_win32_compat.h
+@@ -1,6 +1,6 @@
+ #pragma once
+ 
+-#if defined(__unix__)
++#if defined(__unix__) || defined(__APPLE__)
+ 
+ #include <windows.h>
+ #include <dlfcn.h>
+diff --git a/src/vulkan/vulkan_loader.cpp b/src/vulkan/vulkan_loader.cpp
+index f9d1e98..4f50ae3 100644
+--- a/src/vulkan/vulkan_loader.cpp
++++ b/src/vulkan/vulkan_loader.cpp
+@@ -10,17 +10,29 @@
+ namespace dxvk::vk {
+ 
+   static std::pair<HMODULE, PFN_vkGetInstanceProcAddr> loadVulkanLibrary() {
+-    static const std::array<const char*, 2> dllNames = {{
+-#ifdef _WIN32
++    static const std::array<const char*, 4> dllNames = {{
++#if defined(_WIN32)
+       "winevulkan.dll",
+       "vulkan-1.dll",
++      nullptr, nullptr,
++#elif defined(__APPLE__)
++      // macOS: önce DYLD aramasını dene, sonra Homebrew tam yolunu (SIP DYLD_*'i
++      // strip ettiğinden tam yol güvenilir). MoltenVK fallback dahil.
++      "libvulkan.dylib",
++      "libvulkan.1.dylib",
++      "/opt/homebrew/lib/libvulkan.dylib",
++      "/opt/homebrew/lib/libvulkan.1.dylib",
+ #else
+       "libvulkan.so",
+       "libvulkan.so.1",
++      nullptr, nullptr,
+ #endif
+     }};
+ 
+     for (auto dllName : dllNames) {
++      if (dllName == nullptr)
++        continue;
++
+       HMODULE library = LoadLibraryA(dllName);
+ 
+       if (!library)
+diff --git a/src/wsi/sdl2/wsi_platform_sdl2.cpp b/src/wsi/sdl2/wsi_platform_sdl2.cpp
+index 203cb6d..48a26b6 100644
+--- a/src/wsi/sdl2/wsi_platform_sdl2.cpp
++++ b/src/wsi/sdl2/wsi_platform_sdl2.cpp
+@@ -19,6 +19,12 @@ namespace dxvk::wsi {
+         "libSDL2-2.0.so.0"
+ #endif
+       );
++#if defined(__APPLE__)
++    // SIP, DYLD_* env'lerini strip ettiğinden leaf-name dlopen Homebrew yolunu
++    // bulamayabilir; tam yolu fallback olarak dene.
++    if (libsdl == nullptr)
++      libsdl = LoadLibraryA("/opt/homebrew/lib/libSDL2-2.0.0.dylib");
++#endif
+     if (libsdl == nullptr)
+       throw DxvkError("SDL2 WSI: Failed to load SDL2 DLL.");
+ 

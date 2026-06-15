@@ -15,10 +15,23 @@ bool FileReader::OpenExisting(const std::filesystem::path& path)
 	// Close any existing file handle and reset read states.
 	Close();
 
+#if !defined(_WIN32)
+	// macOS/Linux port: KO asset yolları Windows ters-slash'ı ('\') kullanır
+	// (örn. "Data\Help_us.tbl"). POSIX'te '\' ayraç değildir, bu yüzden
+	// '\' -> '/' dönüştürüp dosyayı bulabilelim. (mac-port)
+	std::string normalized = path.string();
+	for (char& c : normalized)
+		if (c == '\\')
+			c = '/';
+	const std::filesystem::path fsPath(normalized);
+#else
+	const std::filesystem::path& fsPath = path;
+#endif
+
 	// Open and map the given file into memory for reading.
 	try
 	{
-		_mappedFileHandle = boost_ipc::file_mapping(path.native().c_str(), boost_ipc::read_only);
+		_mappedFileHandle = boost_ipc::file_mapping(fsPath.native().c_str(), boost_ipc::read_only);
 		_mappedFileRegion = boost_ipc::mapped_region(_mappedFileHandle, boost_ipc::read_only);
 	}
 	catch (const boost_ipc::interprocess_exception&)
