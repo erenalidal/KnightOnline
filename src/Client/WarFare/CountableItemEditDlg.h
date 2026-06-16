@@ -38,7 +38,10 @@ public:
 	void Release() override;
 	bool ReceiveMessage(CN3UIBase* pSender, uint32_t dwMsg) override;
 
-	virtual void Open(e_UIWND eUW, e_UIWND_DISTRICT eUD, bool bCountGold, bool bWareGold = false);
+	// iDefaultQty: miktar alanını başlangıçta bu değerle doldurur (-1 = boş). SetFocus'tan ÖNCE
+	// set edilir ki macOS edit köprüsü (UpdateTextFromEditCtrl) onu ezmesin. Satışta tam stack için.
+	virtual void Open(e_UIWND eUW, e_UIWND_DISTRICT eUD, bool bCountGold, bool bWareGold = false,
+		int iDefaultQty = -1);
 	virtual void Close();
 
 	bool IsLocked()

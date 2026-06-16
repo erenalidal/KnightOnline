@@ -1112,7 +1112,12 @@ bool CUITransactionDlg::ReceiveIconDrop(__IconItemSkill* spItem, POINT ptCur)
 					|| s_sRecoveryJobInfo.pItemSource->pItemBasic->byContable == UIITEM_TYPE_COUNTABLE_SMALL)
 				{
 					// 활이나 물약등 아이템인 경우..
-					s_pCountableItemEdit->Open(UIWND_TRANSACTION, s_sSelectedIconInfo.UIWndSelect.UIWndDistrict, false);
+					// QoL: satışta miktar alanını otomatik tam stack ile doldur (kullanıcı elle
+					// girmesin; gerekirse azaltır). iDefaultQty Open içinde SetFocus'tan önce set
+					// edilir → macOS edit köprüsü ezmez.
+					s_pCountableItemEdit->Open(UIWND_TRANSACTION,
+						s_sSelectedIconInfo.UIWndSelect.UIWndDistrict, false, false,
+						(s_sRecoveryJobInfo.pItemSource != nullptr) ? s_sRecoveryJobInfo.pItemSource->iCount : -1);
 				}
 				else
 				{
@@ -1188,6 +1193,21 @@ bool CUITransactionDlg::ReceiveIconDrop(__IconItemSkill* spItem, POINT ptCur)
 void CUITransactionDlg::ReceiveResultTradeFromServer(byte bResult, byte bType, int iMoney)
 {
 	s_bWaitFromServer            = false;
+
+	// Güvenlik (crash fix): bu fonksiyon s_sRecoveryJobInfo.pItemSource->pItemBasic ve
+	// m_pMyTradeInv[...]'i her yerde null-check'siz deref eder. Takas sonucu paketi geçerli bir
+	// bekleyen takas OLMADAN gelirse (stale/beklenmeyen paket, ör. envanter doluyken başarısız
+	// NPC alımı) pItemSource null olup null pointer deref ile ÇÖKÜYORDU
+	// (CUITransactionDlg::ReceiveResultTradeFromServer, EXC_BAD_ACCESS @ 0x0). Durumu sıfırlayıp
+	// güvenle çık.
+	if (CGameBase::s_pPlayer == nullptr || s_sRecoveryJobInfo.pItemSource == nullptr
+		|| s_sRecoveryJobInfo.pItemSource->pItemBasic == nullptr)
+	{
+		AllHighLightIconFree();
+		SetState(UI_STATE_COMMON_NONE);
+		return;
+	}
+
 	__IconItemSkill* spItem      = nullptr;
 	__InfoPlayerMySelf* pInfoExt = &CGameBase::s_pPlayer->m_InfoExt;
 
@@ -1197,6 +1217,12 @@ void CUITransactionDlg::ReceiveResultTradeFromServer(byte bResult, byte bType, i
 		case UIWND_DISTRICT_TRADE_NPC:
 			if (bResult != 0x01) // 실패라면..
 			{
+				// Güvenlik (crash fix): başarısız NPC alımında hedef envanter slotu null/geçersiz
+				// olabiliyor (ör. envanter dolu/seviye yetersiz) → m_pMyTradeInv[iOrder] deref'i
+				// EXC_BAD_ACCESS ile çöküyordu. Slot geçerli değilse deref'leri atla.
+				const int iEnd = s_sRecoveryJobInfo.UIWndSourceEnd.iOrder;
+				if (iEnd >= 0 && iEnd < MAX_ITEM_INVENTORY && m_pMyTradeInv[iEnd] != nullptr)
+				{
 				if ((s_sRecoveryJobInfo.pItemSource->pItemBasic->byContable == UIITEM_TYPE_COUNTABLE)
 					|| (s_sRecoveryJobInfo.pItemSource->pItemBasic->byContable == UIITEM_TYPE_COUNTABLE_SMALL))
 				{
@@ -1244,6 +1270,7 @@ void CUITransactionDlg::ReceiveResultTradeFromServer(byte bResult, byte bType, i
 					delete spItem;
 					spItem = nullptr;
 				}
+				} // m_pMyTradeInv[iEnd] geçerlilik guard'ı
 
 				if (bType == 0x04)
 				{
@@ -1264,6 +1291,16 @@ void CUITransactionDlg::ReceiveResultTradeFromServer(byte bResult, byte bType, i
 			break;
 
 		case UIWND_DISTRICT_TRADE_MY:
+			// Güvenlik (crash fix): kaynak envanter slotu null/geçersizse (NPC ile aynı null-deref
+			// riski) işlemeden güvenle çık.
+			if (s_sRecoveryJobInfo.UIWndSourceStart.iOrder < 0
+				|| s_sRecoveryJobInfo.UIWndSourceStart.iOrder >= MAX_ITEM_INVENTORY
+				|| m_pMyTradeInv[s_sRecoveryJobInfo.UIWndSourceStart.iOrder] == nullptr)
+			{
+				AllHighLightIconFree();
+				SetState(UI_STATE_COMMON_NONE);
+				break;
+			}
 			if (bResult != 0x01) // 실패라면..
 			{
 				if ((s_sRecoveryJobInfo.pItemSource->pItemBasic->byContable == UIITEM_TYPE_COUNTABLE)

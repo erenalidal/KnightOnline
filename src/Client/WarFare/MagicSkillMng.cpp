@@ -800,22 +800,8 @@ bool CMagicSkillMng::MsgSend_MagicProcess(int iTargetID, __TABLE_UPC_SKILL* pSki
 			return true;
 
 		case SKILLMAGIC_TARGET_FRIEND_WITHME:
-			if (pTarget == nullptr)
-			{
-				StartSkillMagicAtTargetPacket(pSkill, (int16_t) s_pPlayer->IDNumber());
-				return true;
-			}
-			else if (!s_pPlayer->IsHostileTarget(pTarget))
-			{
-				if (!CheckValidDistance(pSkill, pTarget->Position(), fDist))
-					return false;
-
-				StartSkillMagicAtTargetPacket(pSkill, (int16_t) pTarget->IDNumber());
-				return true;
-			}
-			break;
-
-		case SKILLMAGIC_TARGET_FRIEND_ONLY:
+			// Dost hedef seçiliyse ona uygula; hedef yoksa VEYA DÜŞMAN seçiliyse kendine uygula.
+			// (Eskiden düşman seçiliyken break'e düşüp buff hiç çalışmıyordu — swift vb. atılamıyordu.)
 			if (pTarget != nullptr && !s_pPlayer->IsHostileTarget(pTarget))
 			{
 				if (!CheckValidDistance(pSkill, pTarget->Position(), fDist))
@@ -824,7 +810,22 @@ bool CMagicSkillMng::MsgSend_MagicProcess(int iTargetID, __TABLE_UPC_SKILL* pSki
 				StartSkillMagicAtTargetPacket(pSkill, (int16_t) pTarget->IDNumber());
 				return true;
 			}
-			break;
+			StartSkillMagicAtTargetPacket(pSkill, (int16_t) s_pPlayer->IDNumber());
+			return true;
+
+		case SKILLMAGIC_TARGET_FRIEND_ONLY:
+			// Dost hedef seçiliyse ona; düşman seçiliyse veya hedef yoksa kendine (heal kendine).
+			// (Eskiden düşman seçiliyken heal/buff atılamıyordu.)
+			if (pTarget != nullptr && !s_pPlayer->IsHostileTarget(pTarget))
+			{
+				if (!CheckValidDistance(pSkill, pTarget->Position(), fDist))
+					return false;
+
+				StartSkillMagicAtTargetPacket(pSkill, (int16_t) pTarget->IDNumber());
+				return true;
+			}
+			StartSkillMagicAtTargetPacket(pSkill, (int16_t) s_pPlayer->IDNumber());
+			return true;
 
 		case SKILLMAGIC_TARGET_PARTY:
 		{

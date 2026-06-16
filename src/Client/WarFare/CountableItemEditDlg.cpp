@@ -172,7 +172,8 @@ bool CCountableItemEditDlg::ReceiveMessage(CN3UIBase* pSender, uint32_t dwMsg)
 	return true;
 }
 
-void CCountableItemEditDlg::Open(e_UIWND eUW, e_UIWND_DISTRICT eUD, bool bCountGold, bool bWareGold)
+void CCountableItemEditDlg::Open(e_UIWND eUW, e_UIWND_DISTRICT eUD, bool bCountGold, bool bWareGold,
+	int iDefaultQty)
 {
 	std::string szMsg;
 	if (bCountGold)
@@ -189,7 +190,7 @@ void CCountableItemEditDlg::Open(e_UIWND eUW, e_UIWND_DISTRICT eUD, bool bCountG
 	int iCX = 0, iCY = 0;
 
 	m_bLocked = true;
-	SetQuantity(-1);
+	SetQuantity(iDefaultQty); // -1 = boş; satışta tam stack adedi. SetFocus ÖNCESİ (mac sync ezmesin)
 
 	SetVisible(true);
 
