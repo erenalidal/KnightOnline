@@ -19,6 +19,11 @@ int  KO_Mac_GetAsyncKeyState(int virtualKey);
 // Fare imlecini pencere-istemci koordinatlarında döndürür (ScreenToClient kimliktir).
 void KO_Mac_GetCursorPos(POINT* p);
 
+// Fare imlecini pencere-istemci koordinatlarına taşır (SDL_WarpMouseInWindow). Kamera
+// mouselook (sağ-tık sürükleme) imleci her frame başlangıç noktasına geri sabitler;
+// SetCursorPos no-op iken imleç ekran kenarına kayıp kamera dönüşü kesiliyordu.
+void KO_Mac_SetCursorPos(int x, int y);
+
 // SDL penceresinin istemci (drawable olmayan, nokta cinsinden) boyutu. GetClientRect
 // bunu kullanır; CLocalInput::Tick fare-buton flag'lerini yalnızca imleç bu rect'in
 // içindeyse set ettiğinden, doğru boyut tıklamanın çalışması için ŞART.

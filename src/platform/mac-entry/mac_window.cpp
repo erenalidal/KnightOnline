@@ -12,6 +12,7 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -84,16 +85,45 @@ HWND KO_CreateMacWindow(int width, int height, const char* title)
 	if (width  <= 0) width  = 1024;
 	if (height <= 0) height = 768;
 
+	// Tam ekran: KO_FULLSCREEN=1 → BORDERLESS ekranı kaplayan pencere (gerçek fullscreen DEĞİL).
+	// macOS gerçek-fullscreen (FULLSCREEN_DESKTOP/Space) yolu, app-switch'te MoltenVK'nın
+	// drawable/colorspace durumunu sıfırlayıp renkleri bozuyordu. Kenarlıksız büyük pencere
+	// "windowed" sayıldığından o compositing yoluna girmez → windowed gibi stabil (renk/flicker
+	// sorunu yok). Boyut = ekran sınırları (SDL_GetDisplayBounds, nokta cinsinden). Çağıran
+	// (WarFareMain) gerçek boyutu s_Options.iViewWidth/Height'a yazar → backbuffer=pencere=tıklama.
+	const char* fsEnv      = std::getenv("KO_FULLSCREEN");
+	bool        fullscreen = (fsEnv != nullptr && fsEnv[0] == '1');
+
+	int winX = SDL_WINDOWPOS_CENTERED, winY = SDL_WINDOWPOS_CENTERED;
+	uint32_t flags = SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN;
+	if (fullscreen)
+	{
+		SDL_Rect bounds;
+		if (SDL_GetDisplayBounds(0, &bounds) == 0)
+		{
+			winX = bounds.x; winY = bounds.y;
+			width = bounds.w; height = bounds.h;
+		}
+		flags |= SDL_WINDOW_BORDERLESS;
+	}
+
 	g_macWindow = SDL_CreateWindow(
 		title != nullptr ? title : "Knight OnLine (macOS)",
-		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+		winX, winY,
 		width, height,
-		SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN);
+		flags);
 
 	if (g_macWindow == nullptr)
 	{
 		std::fprintf(stderr, "[mac] SDL_CreateWindow failed: %s\n", SDL_GetError());
 		return nullptr;
+	}
+
+	if (fullscreen)
+	{
+		int fw = 0, fh = 0;
+		SDL_GetWindowSize(g_macWindow, &fw, &fh);
+		std::fprintf(stderr, "[mac] borderless tam ekran: %dx%d\n", fw, fh);
 	}
 
 	int dw = 0, dh = 0;
@@ -236,6 +266,14 @@ void KO_Mac_GetCursorPos(POINT* p)
 	SDL_GetMouseState(&x, &y); // odaklı pencereye göreli = istemci koordinatları
 	p->x = x;
 	p->y = y;
+}
+
+void KO_Mac_SetCursorPos(int x, int y)
+{
+	// Çağıran istemci koordinatı verir (mac'te ClientToScreen kimliktir). SDL_WarpMouseInWindow
+	// de pencere-istemci uzayını kullanır → KO_Mac_GetCursorPos ile aynı uzay.
+	if (g_macWindow != nullptr)
+		SDL_WarpMouseInWindow(g_macWindow, x, y);
 }
 
 void KO_Mac_GetClientSize(int* w, int* h)

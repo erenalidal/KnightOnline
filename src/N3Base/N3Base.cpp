@@ -281,7 +281,13 @@ void CN3Base::PathSet(const std::string& szPath)
 		return;
 
 	// NOTE: this puts the entire string into lowercase characters
+#if !defined(__APPLE__)
 	CharLower(&(s_szPath[0])); // make sure to give lowercase
+#else
+	// macOS: mutlak oyun yolunu küçük harfe ÇEVİRME. Küçük-harfleştirme Windows'ta yol
+	// karşılaştırmasını normalize etmek içindi (case-insensitive FS'de zararsız); ama
+	// case-sensitive APFS biriminde gerçek yolu bozar → tüm asset/ini açılışı başarısız olur.
+#endif
 	if (s_szPath.size() > 1)
 	{
 		// NOTE: this checks if the last character is '\'; if not it will add it

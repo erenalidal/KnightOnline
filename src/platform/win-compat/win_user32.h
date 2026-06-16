@@ -53,7 +53,7 @@ inline int     ShowCursor(BOOL) { return 0; }
 inline UINT    GetDoubleClickTime() { return 500; }
 inline BOOL    GetWindowRect(HWND, RECT* r) { if (r) { r->left = r->top = r->right = r->bottom = 0; } return TRUE; }
 inline BOOL    GetCursorPos(POINT* p) { KO_Mac_GetCursorPos(p); return TRUE; }
-inline BOOL    SetCursorPos(int, int) { return TRUE; }
+inline BOOL    SetCursorPos(int x, int y) { KO_Mac_SetCursorPos(x, y); return TRUE; }
 inline BOOL    ClientToScreen(HWND, POINT*) { return TRUE; }
 inline BOOL    ScreenToClient(HWND, POINT*) { return TRUE; }
 
@@ -332,11 +332,22 @@ typedef HKEY* PHKEY;
 #define REG_BINARY          3
 #define REG_DWORD           4
 
+#if defined(__APPLE__)
+// macOS: dosya-tabanlı KALICI registry (registry_compat.cpp). Skill bar/kamera modu/pencere
+// konumları HKCU REG_BINARY olarak ~/Library/Application Support/KnightOnline/ altında saklanır.
+// Eskiden no-op stub'dı → ayarlar her açılışta sıfırlanıyordu. Bkz. registry_compat.cpp.
+LONG RegOpenKeyA(HKEY, const char*, PHKEY);
+LONG RegCreateKeyA(HKEY, const char*, PHKEY);
+LONG RegCloseKey(HKEY);
+LONG RegQueryValueExA(HKEY, const char*, DWORD*, DWORD*, BYTE*, DWORD*);
+LONG RegSetValueExA(HKEY, const char*, DWORD, DWORD, const BYTE*, DWORD);
+#else
 inline LONG RegOpenKeyA(HKEY, const char*, PHKEY) { return 1; }   // != ERROR_SUCCESS
 inline LONG RegCreateKeyA(HKEY, const char*, PHKEY) { return 1; }
 inline LONG RegCloseKey(HKEY) { return ERROR_SUCCESS; }
 inline LONG RegQueryValueExA(HKEY, const char*, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
 inline LONG RegSetValueExA(HKEY, const char*, DWORD, DWORD, const BYTE*, DWORD) { return ERROR_SUCCESS; }
+#endif
 #ifndef RegOpenKey
 #define RegOpenKey      RegOpenKeyA
 #define RegCreateKey    RegCreateKeyA

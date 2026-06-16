@@ -309,7 +309,18 @@ HWND CreateMainWindow(HINSTANCE hInstance)
 
 #if !defined(_WIN32)
 	// macOS: gerçek bir SDL2 Vulkan penceresi oluştur (dxvk-native present hedefi).
-	return KO_CreateMacWindow(iViewWidth, iViewHeight, "Knight OnLine (macOS)");
+	HWND hMacWnd = KO_CreateMacWindow(iViewWidth, iViewHeight, "Knight OnLine (macOS)");
+	// Tam ekran (KO_FULLSCREEN=1) gerçek pencere boyutunu masaüstüne ayarlar; engine'in render
+	// çözünürlüğünü (backbuffer + UI + GetClientRect/tıklama uzayı) buna eşitle ki tıklamalar
+	// kaymasın. s_pEng->Init bunu buradan SONRA s_Options'tan canlı okur (GameProcedure.cpp).
+	int macCW = 0, macCH = 0;
+	KO_Mac_GetClientSize(&macCW, &macCH);
+	if (macCW > 0 && macCH > 0)
+	{
+		CN3Base::s_Options.iViewWidth  = macCW;
+		CN3Base::s_Options.iViewHeight = macCH;
+	}
+	return hMacWnd;
 #else
 	return ::CreateWindowExA(
 		0, wc.lpszClassName, "Knight OnLine Client", style, 0, 0, iViewWidth, iViewHeight, nullptr, nullptr, hInstance, nullptr);

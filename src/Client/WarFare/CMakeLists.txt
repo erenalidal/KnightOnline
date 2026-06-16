@@ -316,6 +316,8 @@ if (NOT WIN32)
   target_sources(WarFare PRIVATE
     "${CMAKE_SOURCE_DIR}/src/platform/mac-entry/mac_platform.cpp"
     "${CMAKE_SOURCE_DIR}/src/platform/mac-entry/mac_window.cpp"
+    # Win32 Registry → dosya-tabanlı kalıcı ayar (skill bar/kamera/pencere konumu).
+    "${CMAKE_SOURCE_DIR}/src/platform/mac-entry/registry_compat.cpp"
   )
   if (APPLE)
     # Pencere occlusion durumu — occluded'ken render atlanır (drawable starvation/siyah önler).
