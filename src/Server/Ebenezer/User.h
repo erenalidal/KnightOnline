@@ -506,6 +506,7 @@ public:
 	void Dead();
 	void LoyaltyDivide(int tid);
 	void UserDataSaveToAgent();
+	void SendGmToggleToAI(bool bGod); // GM godmode (hasar+aggro) toggle → AIServer
 	void CountConcurrentUser();
 	void SendUserInfo(char* temp_send, int& index);
 	void ChatTargetSelect(char* pBuf);

@@ -132,6 +132,11 @@ public:
 	bool LoadItemExchange();
 
 	void Announcement(uint8_t type, int nation = 0, int chat_type = 8);
+	// Tüm oyunculara sarı sistem duyurusu (PUBLIC_CHAT). Event'lerde (exp/drop/coin) kullanılır.
+	void NoticeAll(const std::string& msg);
+	// AIServer'a sunucu-geneli DROP/COIN bonusu ayarı gönder (loot AIServer'da rollanır).
+	// byType: 0=drop, 1=coin. rate=yüzde (100=normal). durationSec=süre (0=kapat).
+	void SendEventRate(uint8_t byType, int rate, int durationSec);
 	void ResetBattleZone();
 	void BanishLosers();
 	void BattleZoneVictoryCheck();

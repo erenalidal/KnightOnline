@@ -1392,6 +1392,18 @@ void CUser::AllCharInfoToAgent()
 	}
 }
 
+// GM godmode (30000 hasar + no-aggro) toggle'ını AIServer'a bildir. AIServer m_byIsOP'u
+// MANAGER↔USER yapar → her ikisi de açılır/kapanır. Ebenezer authority (komutlar) etkilenmez.
+void CUser::SendGmToggleToAI(bool bGod)
+{
+	int  sendIndex = 0;
+	char sendBuffer[8] {};
+	SetByte(sendBuffer, AG_USER_GM_TOGGLE, sendIndex);
+	SetShort(sendBuffer, _socketId, sendIndex);
+	SetByte(sendBuffer, bGod ? 1 : 0, sendIndex);
+	m_pMain->Send_AIServer(m_pUserData->m_bZone, sendBuffer, sendIndex);
+}
+
 void CUser::UserDataSaveToAgent()
 {
 	int sendIndex = 0, retvalue = 0;

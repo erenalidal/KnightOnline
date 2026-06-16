@@ -412,6 +412,20 @@ bool OperationMessage::Process(const std::string_view command)
 				ExpEvent();
 				break;
 
+			// +drop_event / +coin_event <yüzde> <dakika> — süreli drop/para bonusu (GM)
+			case "+drop_event"_djb2:
+				DropEvent();
+				break;
+
+			case "+coin_event"_djb2:
+				CoinEvent();
+				break;
+
+			// +godmode on/off — GM 30000-hasar + no-aggro aç/kapa (oyun-içi)
+			case "+godmode"_djb2:
+				GodMode();
+				break;
+
 			// Unhandled command.
 			default:
 				return false;
@@ -945,12 +959,70 @@ void OperationMessage::ExpEvent()
 		_main->m_nExpEventRate = 100;
 		_main->m_tExpEventEnd  = 0;
 		spdlog::warn("OperationMessage::ExpEvent: EXP bonusu KAPATILDI");
+		_main->NoticeAll("EXP Event has ended. Experience rate is back to normal.");
 		return;
 	}
 
 	_main->m_nExpEventRate = rate;
 	_main->m_tExpEventEnd  = time(nullptr) + static_cast<time_t>(minutes) * 60;
 	spdlog::warn("OperationMessage::ExpEvent: EXP bonusu ACIK rate={}% sure={}dk", rate, minutes);
+	_main->NoticeAll(fmt::format("EXP Event! x{} experience for the next {} minutes. Happy hunting!",
+		rate / 100, minutes));
+}
+
+// +drop_event / +coin_event <yüzde> <dakika> — süreli drop/para bonusu. Loot AIServer'da rollanır;
+// ayar oraya AG_EVENT_RATE ile gönderilir. rate 100 ya da dakika<=0 → kapatır. Tüm oyunculara duyuru.
+void OperationMessage::DropEvent()
+{
+	EventRateCmd(0, "DROP");
+}
+
+void OperationMessage::CoinEvent()
+{
+	EventRateCmd(1, "COIN");
+}
+
+// +godmode on/off — GM 30000-hasar + no-aggro'yu aç/kapa. Oyun-içi GM gerekir (srcUser).
+// Arg yoksa varsayılan "on". Kapatınca gear'ınla gerçek hasar verir, mob saldırır, exp kazanır.
+void OperationMessage::GodMode()
+{
+	if (_srcUser == nullptr) // yalnızca oyun-içi (telnet'te hedef kullanıcı yok)
+		return;
+
+	bool bGod = true;
+	if (GetArgCount() >= 1)
+	{
+		const std::string& a = ParseString(0);
+		bGod                 = !(a == "off" || a == "0" || a == "kapat");
+	}
+
+	_srcUser->SendGmToggleToAI(bGod);
+	spdlog::warn("OperationMessage::GodMode: charId={} godmode={}", _srcUser->m_pUserData->m_id,
+		bGod ? "ON" : "OFF");
+}
+
+void OperationMessage::EventRateCmd(uint8_t byType, const char* label)
+{
+	if (_main == nullptr || GetArgCount() < 1)
+		return;
+
+	int rate    = ParseInt(0);
+	int minutes = (GetArgCount() >= 2) ? ParseInt(1) : 0;
+	if (rate < 0)
+		rate = 0;
+	if (rate > 10000)
+		rate = 10000;
+
+	bool off = (rate == 100 || minutes <= 0);
+	_main->SendEventRate(byType, off ? 100 : rate, off ? 0 : minutes * 60);
+
+	if (off)
+		_main->NoticeAll(fmt::format("{} Event has ended.", label));
+	else
+		_main->NoticeAll(
+			fmt::format("{} Event! x{} for the next {} minutes!", label, rate / 100, minutes));
+	spdlog::warn("OperationMessage::EventRateCmd: {} rate={}% sure={}dk", label, off ? 100 : rate,
+		off ? 0 : minutes);
 }
 
 bool OperationMessage::ParseCommand(const std::string_view command, size_t& key)

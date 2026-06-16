@@ -46,6 +46,8 @@ public:
 	void RecvUserSetHP(char* pBuf);
 	void RecvAttackReq(char* pBuf);
 	void RecvUserUpdate(char* pBuf);
+	void RecvEventRate(char* pBuf); // GM drop/coin bonusu (AG_EVENT_RATE)
+	void RecvGmToggle(char* pBuf);  // GM godmode toggle (AG_USER_GM_TOGGLE)
 	void RecvZoneChange(char* pBuf);
 	void RecvMagicAttackReq(char* pBuf);
 	void RecvCompressedData(char* pBuf);

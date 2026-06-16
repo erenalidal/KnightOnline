@@ -804,6 +804,8 @@ enum e_AIOpcode : uint8_t
 	AG_TIME_WEATHER        = 64, // time and whether info
 	AG_BATTLE_EVENT        = 65, // battle event
 	AG_COMPRESSED          = 66,
+	AG_EVENT_RATE          = 67, // sunucu-geneli drop/coin bonusu (GM event): type+rate+sure
+	AG_USER_GM_TOGGLE      = 68, // GM godmode (30000 hasar + no-aggro) toggle: socketId + bGod
 
 	// ---------------------------------------------------------------------
 	// AI Server와 게임서버간의 User에 관련된 패킷은 101번 부터 시작

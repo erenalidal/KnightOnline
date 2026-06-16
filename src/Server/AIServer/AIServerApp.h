@@ -138,6 +138,14 @@ public:
 	uint8_t _nightMode                 = 1; // 밤인지,, 낮인지를 판단... 1:낮, 2:밤
 	uint8_t _testMode                  = 0;
 
+	// Sunucu-geneli süreli DROP/COIN bonusu (GM event). Rate yüzde (100 = normal, 200 = x2).
+	// Ebenezer'dan AG_EVENT_RATE paketiyle gelir. End = wall-clock bitiş (time(nullptr)); loot roll
+	// (Npc.cpp) now < end iken çarpar, süre dolunca otomatik normal. Bkz. +drop_event/+coin_event.
+	int    m_nDropEventRate            = 100;
+	time_t m_tDropEventEnd             = 0;
+	int    m_nCoinEventRate            = 100;
+	time_t m_tCoinEventEnd             = 0;
+
 	AISocketManager _serverSocketManager;
 
 private:

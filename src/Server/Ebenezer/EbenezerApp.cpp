@@ -2541,6 +2541,30 @@ void EbenezerApp::ResetBattleZone()
 	// REMEMBER TO MAKE ALL FLAGS AND LEVERS NEUTRAL AGAIN!!!!!!!!!!
 }
 
+void EbenezerApp::SendEventRate(uint8_t byType, int rate, int durationSec)
+{
+	int  sendIndex = 0;
+	char sendBuffer[16] {};
+	SetByte(sendBuffer, AG_EVENT_RATE, sendIndex);
+	SetByte(sendBuffer, byType, sendIndex);
+	SetDWORD(sendBuffer, rate, sendIndex);
+	SetDWORD(sendBuffer, durationSec, sendIndex);
+	Send_AIServer(1000, sendBuffer, sendIndex); // 1000 = tüm zone'lar
+}
+
+void EbenezerApp::NoticeAll(const std::string& msg)
+{
+	int  sendIndex = 0;
+	char sendBuffer[1024] {};
+	SetByte(sendBuffer, WIZ_CHAT, sendIndex);
+	SetByte(sendBuffer, PUBLIC_CHAT, sendIndex); // sarı sistem duyurusu
+	SetByte(sendBuffer, 0x01, sendIndex);        // nation (tümü)
+	SetShort(sendBuffer, -1, sendIndex);         // sid = sistem
+	SetByte(sendBuffer, 0, sendIndex);           // gönderen ad uzunluğu
+	SetString2(sendBuffer, msg, sendIndex);
+	Send_All(sendBuffer, sendIndex);
+}
+
 void EbenezerApp::Announcement(uint8_t type, int nation, int chat_type)
 {
 	int sendIndex = 0;

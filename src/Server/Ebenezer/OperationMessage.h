@@ -98,7 +98,12 @@ protected:
 	void Permanent();
 	void OffPermanent();
 	void GiveItem(); // +give_item itemId [count] — Release'de de etkin (GM authority gerekir)
-	void ExpEvent(); // +exp_event <yüzde> <dakika> — sunucu-geneli süreli EXP bonusu (GM)
+	void ExpEvent();  // +exp_event <yüzde> <dakika> — sunucu-geneli süreli EXP bonusu (GM)
+	void DropEvent(); // +drop_event <yüzde> <dakika> — süreli drop-şansı bonusu (GM)
+	void CoinEvent(); // +coin_event <yüzde> <dakika> — süreli para bonusu (GM)
+	void GodMode();   // +godmode on/off — GM 30000-hasar + no-aggro aç/kapa (oyun-içi GM)
+	// Ortak yardımcı: byType 0=drop, 1=coin. label duyuru metni.
+	void EventRateCmd(uint8_t byType, const char* label);
 
 	bool ParseCommand(const std::string_view command, size_t& key);
 

@@ -5976,6 +5976,9 @@ void CNpc::GiveNpcHaveItem()
 
 	iRandom = myrand(70, 100);
 	iMoney  = m_iMoney * iRandom / 100;
+	// GM sunucu-geneli COIN bonusu (süreli) — düşen parayı çarp.
+	if (m_pMain->m_nCoinEventRate != 100 && time(nullptr) < m_pMain->m_tCoinEventEnd)
+		iMoney = static_cast<int>(static_cast<int64_t>(iMoney) * m_pMain->m_nCoinEventRate / 100);
 	//m_iMoney, m_iItem;
 	_NpcGiveItem GiveItemList[NPC_HAVE_ITEM_LIST]; // Npc의 ItemList
 	if (iMoney <= 0)
@@ -6010,6 +6013,10 @@ void CNpc::GiveNpcHaveItem()
 			iPer    = m_pMain->_npcItem.m_ppItem[i][j + 1];
 			if (iPer == 0)
 				continue;
+
+			// GM sunucu-geneli DROP bonusu (süreli) — düşme şansını (iPer/10000) çarp.
+			if (m_pMain->m_nDropEventRate != 100 && time(nullptr) < m_pMain->m_tDropEventEnd)
+				iPer = static_cast<int>(static_cast<int64_t>(iPer) * m_pMain->m_nDropEventRate / 100);
 
 			int iItemID = m_pMain->_npcItem.m_ppItem[i][j];
 

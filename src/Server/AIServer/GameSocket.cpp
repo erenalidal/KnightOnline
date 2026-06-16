@@ -219,6 +219,14 @@ void CGameSocket::Parsing(int /*length*/, char* pData)
 			RecvTimeAndWeather(pData + index);
 			break;
 
+		case AG_EVENT_RATE:
+			RecvEventRate(pData + index);
+			break;
+
+		case AG_USER_GM_TOGGLE:
+			RecvGmToggle(pData + index);
+			break;
+
 		case AG_USER_FAIL:
 			RecvUserFail(pData + index);
 			break;
@@ -1123,6 +1131,48 @@ void CGameSocket::RecvHealMagic(char* pBuf)
 	}
 
 	pUser->HealMagic();
+}
+
+// Ebenezer'dan GM godmode toggle. m_byIsOP'u MANAGER↔USER arası değiştirir; 30000-hasar
+// (User.cpp) ve no-aggro (Npc.cpp) ikisi de m_byIsOP == AUTHORITY_MANAGER'a baktığından bu, GM
+// god modunu (yüksek hasar + agro almama) açıp kapatır. GM komutları (Ebenezer authority) etkilenmez.
+void CGameSocket::RecvGmToggle(char* pBuf)
+{
+	int     index = 0;
+	int16_t uid   = GetShort(pBuf, index);
+	uint8_t bGod  = GetByte(pBuf, index);
+
+	CUser* pUser = m_pMain->GetUserPtr(uid);
+	if (pUser == nullptr)
+		return;
+	pUser->m_byIsOP = bGod ? AUTHORITY_MANAGER : AUTHORITY_USER;
+	spdlog::warn("CGameSocket::RecvGmToggle: uid={} godmode={}", uid, bGod ? "ON" : "OFF");
+}
+
+// Ebenezer'dan sunucu-geneli DROP/COIN bonusu ayarı (GM +drop_event/+coin_event).
+// Paket: byType(0=drop,1=coin) + rate(int, yüzde) + durationSec(int). Süre dolunca otomatik normal.
+void CGameSocket::RecvEventRate(char* pBuf)
+{
+	int     index       = 0;
+	uint8_t byType      = GetByte(pBuf, index);
+	int     rate        = GetDWORD(pBuf, index);
+	int     durationSec = GetDWORD(pBuf, index);
+
+	bool   active    = (rate != 100 && durationSec > 0);
+	int    finalRate = active ? rate : 100;
+	time_t end       = active ? (time(nullptr) + durationSec) : 0;
+
+	if (byType == 0)
+	{
+		m_pMain->m_nDropEventRate = finalRate;
+		m_pMain->m_tDropEventEnd  = end;
+	}
+	else if (byType == 1)
+	{
+		m_pMain->m_nCoinEventRate = finalRate;
+		m_pMain->m_tCoinEventEnd  = end;
+	}
+	spdlog::warn("CGameSocket::RecvEventRate: type={} rate={}% sure={}sn", byType, finalRate, durationSec);
 }
 
 void CGameSocket::RecvTimeAndWeather(char* pBuf)
