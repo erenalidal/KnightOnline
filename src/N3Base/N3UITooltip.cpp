@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfxBase.h"
+#include "N3FanFix.h"
 #include "N3UITooltip.h"
 #include "N3UIString.h"
 #include "N3UIStatic.h"
@@ -74,8 +75,7 @@ void CN3UITooltip::Render()
 
 		// draw
 		s_lpD3DDev->SetFVF(FVF_TRANSFORMEDCOLOR);
-		s_lpD3DDev->DrawPrimitiveUP(
-			D3DPT_TRIANGLEFAN, 2, pVB, sizeof(__VertexTransformedColor)); // 배경색 칠하기
+		KO_DrawTriFanUP(2, pVB, sizeof(__VertexTransformedColor)); // 배경색 칠하기
 
 		__VertexTransformedColor* pTemp = pVB;
 		for (int i = 0; i < 4; ++i, ++pTemp)

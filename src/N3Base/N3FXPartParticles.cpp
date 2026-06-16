@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfxBase.h"
+#include "N3FanFix.h"
 #include "N3FXPartParticles.h"
 #include "N3FXBundle.h"
 #include "N3FXParticle.h"
@@ -831,8 +832,7 @@ void CN3FXPartParticles::Render()
 
 		//for(int i=0;i<6;i++) m_pIB[i] = pParticle->m_iID + m_wUnitIB[i];
 
-		CN3Base::s_lpD3DDev->DrawPrimitiveUP(
-			D3DPT_TRIANGLEFAN, 2, pParticle->m_pVB, sizeof(__VertexXyzColorT1));
+		KO_DrawTriFanUP(2, pParticle->m_pVB, sizeof(__VertexXyzColorT1));
 		//hr = CN3Base::s_lpD3DDev->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, m_pIB, D3DFMT_INDEX16, m_pVB, sizeof(__VertexXyzColorT1));
 	}
 

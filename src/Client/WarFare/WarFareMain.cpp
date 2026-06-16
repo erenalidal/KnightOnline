@@ -17,6 +17,7 @@
 #include "UIMessageBoxManager.h"
 
 #include <N3Base/DFont.h>
+#include <N3Base/N3Base.h>
 #include <N3Base/N3SndMgr.h>
 #include <N3Base/N3UIEdit.h>
 
@@ -24,10 +25,31 @@
 
 #if !defined(_WIN32)
 #include <mac-entry/mac_window.h>
+#include <mac_input.h>
 #endif
 
 HWND CreateMainWindow(HINSTANCE hInstance);
 LRESULT CALLBACK WndProcMain(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+#if !defined(_WIN32)
+// macOS: SDL metin girişini odaklı CN3UIEdit'e uygular (Win32 EDIT/WM_CHAR yerine).
+// Win32'de bu iş gizli EDIT kontrolü + WM_COMMAND/EN_CHANGE ile yapılır.
+static void KO_ProcessMacEditInput()
+{
+	CN3UIEdit* pEdit = CN3UIBase::GetFocusedEdit();
+	if (pEdit == nullptr)
+		return;
+
+	// Tampon SDL olaylarıyla güncellendi; metni ve caret'i ekran tamponuna çek.
+	pEdit->UpdateTextFromEditCtrl();
+	pEdit->UpdateCaretPosFromEditCtrl();
+
+	if (KO_Mac_EditConsumeReturn() && pEdit->GetParent() != nullptr)
+		pEdit->GetParent()->ReceiveMessage(pEdit, UIMSG_EDIT_RETURN);
+
+	KO_Mac_EditConsumeTab(); // odak değişimi ileride
+}
+#endif
 
 int APIENTRY WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstance*/, _In_ LPSTR /*lpCmdLine*/, _In_ int nShowCmd)
 {
@@ -167,8 +189,40 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstanc
 		// macOS: Win32 mesaj sistemi yok; SDL olaylarını pompala, kapatınca çık.
 		if (KO_PumpMacEvents())
 			break;
+		KO_ProcessMacEditInput(); // odaklı CN3UIEdit'e SDL metin girişini uygula
+		// Win32'de WM_SOCKETMSG/FD_READ ile sürülen socket alımı macOS'ta yok;
+		// her frame elle pompala (Receive veri yoksa erken döner). Yoksa client
+		// gönderir ama hiç cevap işlemez → login sonrası boş ekran.
+		if (CGameProcedure::s_pSocket != nullptr)
+			CGameProcedure::s_pSocket->Receive();
 		CGameProcedure::TickActive();
-		CGameProcedure::RenderActive();
+		// Occluded (örtülü/arka plan) pencerede render/present'i atla → CAMetalDrawable havuzu
+		// tükenmez (siyah/donma/flicker önlenir, öne dönünce kurtulur). DEBOUNCE: yalnızca
+		// birkaç frame üst üste görünmezse atla — frontmost'taki anlık occlusionState glitch'i
+		// render'ı kesmesin (yoksa ön planda stutter olur). TickActive sürer → server kopmaz.
+		{
+			static int s_hiddenFrames = 0;
+			bool       visible = KO_MacWindowVisible();
+			bool       resumed = (s_hiddenFrames >= 3) && visible; // idle'dan yeni döndü
+
+			if (visible)
+				s_hiddenFrames = 0;
+			else if (s_hiddenFrames < 1000000)
+				s_hiddenFrames++;
+
+			if (s_hiddenFrames < 3)
+			{
+				CGameProcedure::RenderActive();
+				// Arka plandan yeni döndüyse: occluded iken havuzda kalan eski (stale)
+				// drawable'lar ilk karelerde flicker yapar. Swapchain image sayısı kadar
+				// fazladan render+present ederek havuzu taze içerikle doldur → flicker biter.
+				if (resumed)
+					for (int k = 0; k < 2; k++)
+						CGameProcedure::RenderActive();
+			}
+			else
+				KO_MacIdleSleep();
+		}
 		continue;
 #endif
 		// Use PeekMessage() if the app is active, so we can use idle time to

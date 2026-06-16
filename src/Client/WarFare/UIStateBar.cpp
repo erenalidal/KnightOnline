@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfx.h"
+#include <N3Base/N3FanFix.h>
 #include "UIStateBar.h"
 #include "GameDef.h"
 #include "LocalInput.h"
@@ -417,8 +418,8 @@ void CUIStateBar::Render()
 		vOutLines[3].x      = vPos.x - 2.0f;
 		vOutLines[3].y      = vPos.y + 2.0f;
 
-		CN3Base::s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, vOutLines, sizeof(__VertexTransformedColor));
-		CN3Base::s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, vPositions, sizeof(__VertexTransformedColor));
+		KO_DrawTriFanUP(2, vOutLines, sizeof(__VertexTransformedColor));
+		KO_DrawTriFanUP(2, vPositions, sizeof(__VertexTransformedColor));
 	}
 
 	CN3Base::s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLELIST, 2, m_vArrows, sizeof(__VertexTransformedColor));
@@ -460,8 +461,8 @@ void CUIStateBar::Render()
 		vOutLines[3].x      = vPos.x - 2.0f;
 		vOutLines[3].y      = vPos.y + 2.0f;
 
-		CN3Base::s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, vOutLines, sizeof(__VertexTransformedColor));
-		CN3Base::s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, vPositions, sizeof(__VertexTransformedColor));
+		KO_DrawTriFanUP(2, vOutLines, sizeof(__VertexTransformedColor));
+		KO_DrawTriFanUP(2, vPositions, sizeof(__VertexTransformedColor));
 	}
 
 	//Render..

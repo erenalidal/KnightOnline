@@ -6,6 +6,52 @@
 
 ## İLERLEME GÜNLÜĞÜ
 
+### 2026-06-15 (7) — ⌨️🖱️ GİRDİ KÖPRÜSÜ (kod tamam, etkileşimli test bekliyor)
+SDL girdiyi Win32/DirectInput şimlerine bağladım. Oyun kodu değişmeden çalışsın diye
+şimler SDL'e yönlendirildi.
+
+Yeni: `src/platform/win-compat/mac_input.h` (köprü bildirimleri). İmpl:
+`src/platform/mac-entry/mac_window.cpp`.
+- **Fare:** `GetCursorPos`→SDL_GetMouseState (istemci koord), `GetAsyncKeyState/GetKeyState/
+  _IsKeyDown`→fare butonları + Ctrl/Alt/Shift/oklar, `GetActiveWindow`→odaktaki SDL pencere
+  (yoksa `CLocalInput::Tick` erken çıkıyordu). (win32_api_compat.h, win_user32.h)
+- **Klavye:** `dinput.h` `GetDeviceState`→`KO_Mac_FillDIKeyboard` (SDL scancode→DIK tablosu).
+- **Metin:** gizli Win32 "EDIT" → SDL köprüsü. `CreateWindow("EDIT")` sentinel handle döner;
+  `SetWindowText/GetWindowText/GetWindowTextLength/SetFocus/SendMessage(EM_GETSEL)` köprüye
+  yönlendi. `KO_PumpMacEvents` SDL_TEXTINPUT/backspace/return/tab toplar. Engine tarafı:
+  `WarFareMain.cpp::KO_ProcessMacEditInput()` her frame odaklı CN3UIEdit'e uygular.
+
+**Açık sorunlar (kullanıcı geri bildirimi):**
+1. **Yazılar render olmuyor** — `DFont.cpp` glyph'i GDI (`CreateDIBSection`+`ExtTextOut`) ile
+   çiziyor; macOS'ta GDI stub → boş. Çözüm (Faz 6): CoreText/CoreGraphics ile rasterize et.
+2. **Tıklama çalışmıyor** — pencere odağı + UI'nın tıklamayı CLocalInput poll mı WndProc
+   WM_LBUTTONDOWN mı ile aldığını araştır (ikincisiyse SDL mouse→UI köprüsü gerek).
+
+### 2026-06-15 (6) — 🎨 RENK DÜZELTMESİ — gri tonlama (siyah-beyaz) çözüldü
+**Belirti:** Login ekranı tam detaylı ama tamamen gri (nötr, R=G=B) render ediliyordu.
+
+**Teşhis (adım adım kanıtlandı):**
+- Texture verisi renkliydi (el_login01: piksellerin %57.8'i renkli, maxSpread=14/15).
+- A8R8G8B8'e genişletmek bile düzeltmedi → sorun texture değil, pipeline.
+- Zorla kırmızı texture (R=255) → ekran beyaz; `0xF08F` (opak, R=0) → siyah ⇒ **`.rrr`
+  (kırmızı kanal tüm RGB'ye yayılıyor)**, formattan bağımsız global.
+- MoltenVK MSL dump'ı (`MVK_CONFIG_SHADER_DUMP_DIR`): FF fragment shader'da texture'lar
+  `depth2d<float>` olarak tipli; `float4(depth2d.sample(...))` skaleri yayıyor.
+
+**Kök neden:** `src/d3d9/shaders/d3d9_fixed_function_frag.glsl` `t2d`'yi hem
+`sampler2DShadow` (depth-compare) hem `sampler2D` (renk) ile kullanıyor. Normal Vulkan'da
+geçerli; MoltenVK/SPIRV-Cross shadow kullanımını görünce Metal texture'ını `depth2d`'ye
+terfi ettirir → renk `sample()` skaler döner → `.xxxx` → gri.
+
+**Çözüm:** macOS'ta (`-DDXVK_MACOS`, meson.build) FF shadow yolu derleme-zamanı kapatıldı;
+texture renk `texture2d` olarak kalıyor. SM1-3 için aynısı dxbc-spirv `sm3_resources.cpp`'de
+(Dref dalını Apple'da emit etme). D3D9 donanım gölge haritası kaybolur (KO kullanmaz).
+Sonuç: login ekranı tam renkli (%51.8 renkli piksel). Yamalar: `docs/patches/*.patch`.
+
+**Teşhis ipucu:** Pencereyi z-order'dan bağımsız yakalamak için CGWindowID ile
+`screencapture -l<id>` (swift ile `CGWindowListCopyWindowInfo`'dan id alınır); tam-ekran
+yakalama yanlış pencereyi alıyordu.
+
 ### 2026-06-15 (5) — 🎉🎉🎉 CLIENT MAC'TE ÇALIŞIYOR — Metal'e render ediyor
 **Knight Online client'ı macOS'ta (Apple Silicon) native, dxvk-native→MoltenVK→Metal ile
 çalışıyor, stabil, login ekranına ulaşıyor, frame present ediyor.**

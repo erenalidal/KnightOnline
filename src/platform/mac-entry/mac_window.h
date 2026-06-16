@@ -11,5 +11,11 @@ HWND KO_CreateMacWindow(int width, int height, const char* title);
 
 // SDL olaylarını işler. Pencere kapatıldıysa (SDL_QUIT) true döndürür.
 bool KO_PumpMacEvents();
+
+// Pencere ekranda görünür (occluded değil) mi? Çağıran debounce uygulayıp occluded'ken
+// render'ı atlar (drawable starvation/siyah/donma önler); frontmost'ta hep görünür döner.
+bool KO_MacWindowVisible();
+// Render atlanırken döngünün CPU yakmaması için kısa uyku.
+void KO_MacIdleSleep();
 #endif
 #endif

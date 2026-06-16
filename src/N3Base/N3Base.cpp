@@ -395,12 +395,14 @@ float CN3Base::TimeGet()
 	static bool bInit       = false;
 	static bool bUseHWTimer = FALSE;
 	static LARGE_INTEGER nTime, nFrequency;
+	static LONGLONG nStart = 0;
 
 	if (bInit == false)
 	{
 		if (TRUE == ::QueryPerformanceCounter(&nTime))
 		{
 			::QueryPerformanceFrequency(&nFrequency);
+			nStart      = nTime.QuadPart; // başlangıç ofseti (aşağıda farkı al)
 			bUseHWTimer = TRUE;
 		}
 		else
@@ -414,8 +416,14 @@ float CN3Base::TimeGet()
 	if (bUseHWTimer)
 	{
 		::QueryPerformanceCounter(&nTime);
-		return (float) ((double) (nTime.QuadPart) / (double) nFrequency.QuadPart);
+		// ÖNEMLİ: QPC sayacı sistem açılışından beri sayar (macOS'ta mach_absolute_time,
+		// frekans 1e9). Saniyeye çevrilen mutlak değer büyük olur (örn. 3-4 günlük uptime
+		// → ~3e5 sn) ve float'a cast edilince ULP ~31ms'ye çıkar → ardışık zaman damgaları
+		// 0/31ms'ye kuantalanır → hareket/dönüş/saldırı zamanlaması "takıla takıla" olur.
+		// Sayaç FARKINI int64 olarak alıp (başlangıçtan beri) sonra float'a çevirerek değeri
+		// 0'dan başlatırız; tüm zaman FARKLARI aynı kalır ama float precision ms-altında kalır.
+		return (float) ((double) (nTime.QuadPart - nStart) / (double) nFrequency.QuadPart);
 	}
 
-	return (float) timeGetTime();
+	return (float) (timeGetTime() * 0.001); // ms → saniye (HW timer ile aynı birim)
 }

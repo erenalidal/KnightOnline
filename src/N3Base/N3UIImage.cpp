@@ -5,6 +5,7 @@
 #include "StdAfxBase.h"
 #include "N3UIImage.h"
 #include "N3Texture.h"
+#include "N3FanFix.h" // KO_DrawQuadAsList — fan→list (MoltenVK tile-flush önlemi)
 
 CN3UIImage::CN3UIImage()
 {
@@ -183,7 +184,7 @@ void CN3UIImage::Render()
 			s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
 			s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
 
-			s_lpD3DDev->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
+			KO_DrawQuadAsList(); // fan yerine list (MoltenVK render-pass restart'ını önler)
 		}
 
 		CN3UIBase::Render();
@@ -201,7 +202,7 @@ void CN3UIImage::RenderIconWrapper()
 		s_lpD3DDev->SetFVF(FVF_TRANSFORMED);
 		s_lpD3DDev->SetTexture(0, nullptr);
 
-		s_lpD3DDev->DrawPrimitive(D3DPT_TRIANGLEFAN, 0, 2);
+		KO_DrawQuadAsList(); // fan yerine list (MoltenVK render-pass restart'ını önler)
 	}
 
 	CN3UIBase::Render();

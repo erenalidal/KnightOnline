@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfxBase.h"
+#include "N3FanFix.h"
 #include "N3Moon.h"
 #include "My_3DStruct.h"
 #include "N3Texture.h"
@@ -100,7 +101,7 @@ void CN3Moon::Render(__Matrix44& matView, __Matrix44& matProj)
 	s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
 
 	s_lpD3DDev->SetFVF(FVF_TRANSFORMED);
-	s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, m_pVertices, sizeof(m_pVertices[0]));
+	KO_DrawTriFanUP(2, m_pVertices, sizeof(m_pVertices[0]));
 }
 
 void CN3Moon::SetMoonPhase(int iIndex)

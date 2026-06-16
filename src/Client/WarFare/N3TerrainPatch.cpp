@@ -8,6 +8,7 @@
 #include "N3Terrain.h"
 
 #include <N3Base/N3Texture.h>
+#include <N3Base/N3FanFix.h> // fan→list (MoltenVK tile-flush önlemi)
 
 //
 //	생성자
@@ -689,7 +690,7 @@ void CN3TerrainPatch::Render()
 		for (const FANINFO& fi : m_FanInfoList)
 		{
 			fc = fi.NumFace;
-			CN3Base::s_lpD3DDev->DrawPrimitive(D3DPT_TRIANGLEFAN, vc, fc);
+			KO_DrawTriFanIndexed(vc, fi.NumVertex); // fan→list (MoltenVK tile-flush önlemi)
 			vc += fi.NumVertex;
 #if _DEBUG
 			CN3Base::s_RenderInfo.nTerrain_Polygon += fi.NumVertex; // Rendering Information 갱신..
@@ -761,7 +762,7 @@ void CN3TerrainPatch::Render()
 				}
 			}
 
-			CN3Base::s_lpD3DDev->DrawPrimitive(D3DPT_TRIANGLEFAN, (i << 2), 2);
+			KO_DrawTriFanIndexed((i << 2), 4); // fan→list (MoltenVK tile-flush önlemi)
 
 			if ((!m_pRefTerrain->m_bAvailableTile) && m_pTileTexIndx[0][i] < TileTextureCount && m_pTileTexIndx[1][i] < TileTextureCount)
 			{
@@ -782,7 +783,7 @@ void CN3TerrainPatch::Render()
 				CN3Base::s_lpD3DDev->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
 				CN3Base::s_lpD3DDev->SetTextureStageState(2, D3DTSS_COLOROP, D3DTOP_DISABLE);
 
-				CN3Base::s_lpD3DDev->DrawPrimitive(D3DPT_TRIANGLEFAN, (i << 2), 2);
+				KO_DrawTriFanIndexed((i << 2), 4); // fan→list (MoltenVK tile-flush önlemi)
 
 				CN3Base::s_lpD3DDev->SetRenderState(D3DRS_ALPHABLENDENABLE, dwAlphaEnable);
 				CN3Base::s_lpD3DDev->SetRenderState(D3DRS_SRCBLEND, dwSrcBlend);
@@ -817,7 +818,7 @@ void CN3TerrainPatch::Render()
 		for (int i = 0; i < m_NumLightMapTex; i++)
 		{
 			CN3Base::s_lpD3DDev->SetTexture(0, m_pRefLightMapTex[i]->Get());
-			CN3Base::s_lpD3DDev->DrawPrimitive(D3DPT_TRIANGLEFAN, (i << 2), 2);
+			KO_DrawTriFanIndexed((i << 2), 4); // fan→list (MoltenVK tile-flush önlemi)
 		}
 		CN3Base::s_lpD3DDev->SetRenderState(D3DRS_ALPHABLENDENABLE, dwAlphaEnable);
 		CN3Base::s_lpD3DDev->SetRenderState(D3DRS_SRCBLEND, dwSrcBlend);

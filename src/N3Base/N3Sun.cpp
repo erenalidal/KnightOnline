@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfxBase.h"
+#include "N3FanFix.h"
 #include "N3Sun.h"
 #include "N3Texture.h"
 
@@ -111,8 +112,7 @@ void CN3Sun::Render(__Matrix44& matView, __Matrix44& matProj)
 			s_lpD3DDev->SetTexture(0, pSP->pTex->Get());
 		else
 			s_lpD3DDev->SetTexture(0, nullptr);
-		s_lpD3DDev->DrawPrimitiveUP(
-			D3DPT_TRIANGLEFAN, 2, pSP->pVertices, sizeof(__VertexTransformed));
+		KO_DrawTriFanUP(2, pSP->pVertices, sizeof(__VertexTransformed));
 	}
 
 	// restore render state

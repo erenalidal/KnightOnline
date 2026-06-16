@@ -16,6 +16,7 @@
 
 #include <cstring>
 #include "win_types.h" // HWND/HINSTANCE/DWORD/HRESULT + dxvk GUID
+#include "mac_input.h" // SDL klavye köprüsü
 
 #ifndef DIRECTINPUT_VERSION
 #define DIRECTINPUT_VERSION 0x0800
@@ -39,7 +40,7 @@ struct KO_DIDevice8
 	HRESULT SetProperty(const GUID&, const void*) { return DI_OK; }
 	HRESULT Acquire() { return DI_OK; }
 	HRESULT Unacquire() { return DI_OK; }
-	HRESULT GetDeviceState(DWORD cbData, void* lpvData) { if (lpvData) ::memset(lpvData, 0, cbData); return DI_OK; }
+	HRESULT GetDeviceState(DWORD cbData, void* lpvData) { KO_Mac_FillDIKeyboard((unsigned char*) lpvData, (int) cbData); return DI_OK; }
 	HRESULT GetDeviceData(DWORD, void*, DWORD*, DWORD) { return DI_OK; }
 	unsigned long Release() { return 0; }
 };

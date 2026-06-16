@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfxBase.h"
+#include "N3FanFix.h"
 #include "N3FXPartBillBoard.h"
 #include "N3FXBundle.h"
 
@@ -642,8 +643,7 @@ void CN3FXPartBillBoard::Render()
 			s_lpD3DDev->SetRenderState(D3DRS_CULLMODE, m_dwDoubleSide);
 
 		for (int i = 0; i < m_iNum; i++)
-			s_lpD3DDev->DrawPrimitiveUP(
-				D3DPT_TRIANGLEFAN, 2, &m_pVB[i * 4], sizeof(__VertexXyzColorT1));
+			KO_DrawTriFanUP(2, &m_pVB[i * 4], sizeof(__VertexXyzColorT1));
 
 		if (m_bAlpha != dwAlpha)
 			s_lpD3DDev->SetRenderState(D3DRS_ALPHABLENDENABLE, dwAlpha);

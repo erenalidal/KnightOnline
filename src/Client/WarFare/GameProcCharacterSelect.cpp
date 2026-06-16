@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfx.h"
+#include <N3Base/N3FanFix.h>
 #include "GameProcCharacterSelect.h"
 #include "GameProcedure.h"
 #include "text_resources.h"
@@ -1270,7 +1271,7 @@ void CGameProcCharacterSelect::FadeOutRender()
 	s_lpD3DDev->SetTexture(0, nullptr);
 
 	s_lpD3DDev->SetFVF(FVF_TRANSFORMEDCOLOR);
-	s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, pVertices, sizeof(__VertexTransformedColor));
+	KO_DrawTriFanUP(2, pVertices, sizeof(__VertexTransformedColor));
 
 	s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLOROP, dwTexStageCO);
 	s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLORARG1, dwTexStageCARG1);

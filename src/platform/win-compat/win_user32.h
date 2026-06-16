@@ -15,6 +15,7 @@
 #if !defined(_WIN32)
 
 #include "win_types.h"
+#include "mac_input.h"
 
 // --- WPARAM/LPARAM/LRESULT (tek tanım noktası) ---
 #ifndef KO_WPARAM_DEFINED
@@ -51,7 +52,7 @@ inline HCURSOR GetCursor() { return nullptr; }
 inline int     ShowCursor(BOOL) { return 0; }
 inline UINT    GetDoubleClickTime() { return 500; }
 inline BOOL    GetWindowRect(HWND, RECT* r) { if (r) { r->left = r->top = r->right = r->bottom = 0; } return TRUE; }
-inline BOOL    GetCursorPos(POINT* p) { if (p) { p->x = 0; p->y = 0; } return TRUE; }
+inline BOOL    GetCursorPos(POINT* p) { KO_Mac_GetCursorPos(p); return TRUE; }
 inline BOOL    SetCursorPos(int, int) { return TRUE; }
 inline BOOL    ClientToScreen(HWND, POINT*) { return TRUE; }
 inline BOOL    ScreenToClient(HWND, POINT*) { return TRUE; }
@@ -149,8 +150,17 @@ typedef LRESULT (*WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 #endif
 
 // --- Pencere fonksiyonu stub'ları ---
-inline HWND CreateWindowA(const char*, const char*, DWORD, int, int, int, int,
-	HWND, HMENU, HMODULE, void*) { return nullptr; }
+inline HWND CreateWindowA(const char* className, const char*, DWORD, int, int, int, int,
+	HWND, HMENU, HMODULE, void*)
+{
+	// CN3UIEdit gizli "EDIT" kontrolü -> SDL metin köprüsü handle'ı (büyük/küçük duyarsız).
+	const char* c = className;
+	if (c != nullptr
+		&& (c[0] == 'E' || c[0] == 'e') && (c[1] == 'D' || c[1] == 'd')
+		&& (c[2] == 'I' || c[2] == 'i') && (c[3] == 'T' || c[3] == 't') && c[4] == '\0')
+		return KO_Mac_EditHandle();
+	return nullptr;
+}
 #ifndef CreateWindow
 #define CreateWindow CreateWindowA
 #endif
@@ -164,16 +174,29 @@ inline LONG_PTR GetWindowLongPtrA(HWND, int) { return 0; }
 
 inline LRESULT CallWindowProcA(WNDPROC, HWND, UINT, WPARAM, LPARAM) { return 0; }
 inline LRESULT DefWindowProcA(HWND, UINT, WPARAM, LPARAM) { return 0; }
-inline LRESULT SendMessageA(HWND, UINT, WPARAM, LPARAM) { return 0; }
+inline LRESULT SendMessageA(HWND h, UINT msg, WPARAM, LPARAM)
+{
+	// CN3UIEdit caret konumu için EM_GETSEL: LOWORD/HIWORD = caret (metin sonu).
+	if (h == KO_Mac_EditHandle() && msg == EM_GETSEL)
+	{
+		int c = KO_Mac_EditGetCaret();
+		return MAKELPARAM(c, c);
+	}
+	return 0;
+}
 #ifndef CallWindowProc
 #define CallWindowProc CallWindowProcA
 #define DefWindowProc  DefWindowProcA
 #define SendMessage    SendMessageA
 #endif
 
-inline BOOL SetWindowTextA(HWND, const char*) { return TRUE; }
-inline int  GetWindowTextA(HWND, char* buf, int n) { if (buf && n > 0) buf[0] = '\0'; return 0; }
-inline int  GetWindowTextLengthA(HWND) { return 0; }
+inline BOOL SetWindowTextA(HWND h, const char* s)
+{ if (h == KO_Mac_EditHandle()) KO_Mac_EditSetText(s); return TRUE; }
+inline int  GetWindowTextA(HWND h, char* buf, int n)
+{ if (h == KO_Mac_EditHandle()) return KO_Mac_EditGetText(buf, n);
+  if (buf && n > 0) buf[0] = '\0'; return 0; }
+inline int  GetWindowTextLengthA(HWND h)
+{ return (h == KO_Mac_EditHandle()) ? KO_Mac_EditGetTextLength() : 0; }
 #ifndef SetWindowText
 #define SetWindowText       SetWindowTextA
 #define GetWindowText       GetWindowTextA
@@ -181,7 +204,8 @@ inline int  GetWindowTextLengthA(HWND) { return 0; }
 #endif
 
 inline BOOL MoveWindow(HWND, int, int, int, int, BOOL) { return TRUE; }
-inline HWND SetFocus(HWND) { return nullptr; }
+inline HWND SetFocus(HWND h)
+{ KO_Mac_EditSetActive(h == KO_Mac_EditHandle() ? 1 : 0); return h; }
 inline HWND SetActiveWindow(HWND) { return nullptr; }
 inline BOOL SetForegroundWindow(HWND) { return TRUE; }
 inline HWND GetForegroundWindow() { return nullptr; }
@@ -278,7 +302,12 @@ inline BOOL UnregisterClassA(const char*, HMODULE) { return TRUE; }
 inline HWND CreateWindowExA(DWORD, const char*, const char*, DWORD, int, int, int, int,
 	HWND, HMENU, HMODULE, void*) { return nullptr; }
 inline HICON LoadIconA(HMODULE, const char*) { return nullptr; }
+#if defined(__APPLE__)
+void        KO_Mac_RequestQuit(); // mac_window.cpp — ana döngüye çıkış sinyali
+inline void PostQuitMessage(int) { KO_Mac_RequestQuit(); } // oyun-içi Exit'i çalıştırır
+#else
 inline void  PostQuitMessage(int) {}
+#endif
 inline BOOL  GetMessageA(MSG*, HWND, UINT, UINT) { return FALSE; }
 inline BOOL  AdjustWindowRect(RECT*, DWORD, BOOL) { return TRUE; }
 inline BOOL  AdjustWindowRectEx(RECT*, DWORD, BOOL, DWORD) { return TRUE; }

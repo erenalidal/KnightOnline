@@ -317,6 +317,14 @@ if (NOT WIN32)
     "${CMAKE_SOURCE_DIR}/src/platform/mac-entry/mac_platform.cpp"
     "${CMAKE_SOURCE_DIR}/src/platform/mac-entry/mac_window.cpp"
   )
+  if (APPLE)
+    # Pencere occlusion durumu — occluded'ken render atlanır (drawable starvation/siyah önler).
+    target_sources(WarFare PRIVATE
+      "${CMAKE_SOURCE_DIR}/src/platform/mac-entry/mac_occlusion.mm")
+    find_library(_COCOA Cocoa REQUIRED)
+    find_library(_COREGRAPHICS_W CoreGraphics REQUIRED)
+    target_link_libraries(WarFare PRIVATE ${_COCOA} ${_COREGRAPHICS_W})
+  endif ()
   # dxvk-native libdxvk_d3d9 (Direct3DCreate9 + D3D9→Vulkan→MoltenVK→Metal).
   set(_DXVK_LIB "${CMAKE_SOURCE_DIR}/deps/dxvk-native-src/build-mac/src/d3d9/libdxvk_d3d9.0.dylib")
   target_link_libraries(WarFare PRIVATE "${_DXVK_LIB}")

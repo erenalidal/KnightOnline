@@ -135,7 +135,9 @@ inline HGLOBAL GlobalFree(HGLOBAL hMem)
 #define IDNO               7
 #endif
 
-inline HWND GetActiveWindow() { return nullptr; }
+#include "mac_input.h"
+
+inline HWND GetActiveWindow() { return KO_Mac_GetActiveWindow(); }
 
 // RECT yardımcıları (GDI).
 inline BOOL SetRect(RECT* r, int l, int t, int rt, int b)
@@ -153,9 +155,9 @@ inline int MessageBoxA(HWND, const char*, const char*, unsigned int) { return ID
 #define MessageBox MessageBoxA
 #endif
 
-// Input: gerçek implementasyon SDL ile gelecek (Faz 4). Şimdilik "basılı değil".
-inline int16_t GetAsyncKeyState(int) { return 0; }
-inline int16_t GetKeyState(int) { return 0; }
+// Input: SDL köprüsü (mac_input.h / mac_window.cpp).
+inline int16_t GetAsyncKeyState(int vk) { return (int16_t) KO_Mac_GetAsyncKeyState(vk); }
+inline int16_t GetKeyState(int vk) { return (int16_t) KO_Mac_GetAsyncKeyState(vk); }
 
 // MessageBoxW (geniş karakter varyantı) — BitMapFile vb. L"..." kullanır.
 inline int MessageBoxW(HWND, const wchar_t*, const wchar_t*, unsigned int) { return IDOK; }
@@ -227,8 +229,14 @@ inline char* lstrcpynA(char* d, const char* s, int n) { ::strncpy(d, s ? s : "",
 #define lstrcpyn lstrcpynA
 #endif
 
-// GetPrivateProfileString/Int — INI okuma. STUB: varsayılanı döndürür.
-// TODO(mac-port): gerçek INI parse (config dosyaları için).
+// GetPrivateProfileString/Int — INI okuma.
+#if defined(__APPLE__)
+// macOS: GERÇEK INI parse (ini_compat.cpp). Client Server.Ini'den server IP'lerini
+// okur; stub varsayılan dönerse iServerCount=0 → "No server list" olurdu.
+DWORD GetPrivateProfileStringA(const char* section, const char* key, const char* def,
+	char* ret, DWORD nSize, const char* file);
+UINT  GetPrivateProfileIntA(const char* section, const char* key, int def, const char* file);
+#else
 inline DWORD GetPrivateProfileStringA(const char*, const char*, const char* def,
 	char* ret, DWORD nSize, const char*)
 {
@@ -238,6 +246,7 @@ inline DWORD GetPrivateProfileStringA(const char*, const char*, const char* def,
 	return static_cast<DWORD>(::strlen(ret));
 }
 inline UINT GetPrivateProfileIntA(const char*, const char*, int def, const char*) { return static_cast<UINT>(def); }
+#endif
 inline BOOL WritePrivateProfileStringA(const char*, const char*, const char*, const char*) { return TRUE; }
 #ifndef GetPrivateProfileString
 #define GetPrivateProfileString GetPrivateProfileStringA
@@ -316,14 +325,26 @@ typedef void* HBITMAP;
 #define FW_BOLD             700
 
 inline int     MulDiv(int a, int b, int c) { return (c != 0) ? static_cast<int>((static_cast<long long>(a) * b) / c) : 0; }
+inline int     GetDeviceCaps(HDC, int) { return LOGPIXELSY; }
+
+#if defined(__APPLE__)
+// macOS: GERÇEK metin rasterizasyonu CoreText/CoreGraphics ile (gdi_text_mac.cpp).
+// DFont glyph'leri bir DIB'e çizip texture'a kopyalar; bu yol artık gerçek glyph
+// üretir (eskiden stub → boş bitmap → görünmez yazı).
+HDC     CreateCompatibleDC(HDC);
+BOOL    DeleteDC(HDC);
+HGDIOBJ SelectObject(HDC, HGDIOBJ);
+BOOL    DeleteObject(HGDIOBJ);
+HFONT   CreateFontA(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD,
+	DWORD, DWORD, DWORD, DWORD, const char*);
+#else
 inline HDC     CreateCompatibleDC(HDC) { return nullptr; }
 inline BOOL    DeleteDC(HDC) { return TRUE; }
-inline int     GetDeviceCaps(HDC, int) { return LOGPIXELSY; }
 inline HGDIOBJ SelectObject(HDC, HGDIOBJ) { return nullptr; }
 inline BOOL    DeleteObject(HGDIOBJ) { return TRUE; }
-
 inline HFONT CreateFontA(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD,
 	DWORD, DWORD, DWORD, DWORD, const char*) { return nullptr; }
+#endif
 #ifndef CreateFont
 #define CreateFont CreateFontA
 #endif
@@ -357,27 +378,33 @@ inline COLORREF SetTextColor(HDC, COLORREF) { return 0; }
 inline COLORREF SetBkColor(HDC, COLORREF) { return 0; }
 inline UINT     SetTextAlign(HDC, UINT) { return 0; }
 
+#if defined(__APPLE__)
+// macOS: CoreText ile gerçek ölçüm/çizim, gerçek DIB tamponu (gdi_text_mac.cpp).
+BOOL    GetTextExtentPoint32A(HDC, const char*, int, SIZE* sz);
+BOOL    ExtTextOutA(HDC, int, int, UINT, const RECT*, const char*, UINT, const int*);
+HBITMAP CreateDIBSection(HDC, const BITMAPINFO*, UINT, void** ppvBits, HANDLE, DWORD);
+#else
 inline BOOL GetTextExtentPoint32A(HDC, const char*, int, SIZE* sz)
 {
 	if (sz != nullptr) { sz->cx = 0; sz->cy = 0; }
 	return TRUE;
 }
-#ifndef GetTextExtentPoint32
-#define GetTextExtentPoint32 GetTextExtentPoint32A
-#endif
 
 inline BOOL ExtTextOutA(HDC, int, int, UINT, const RECT*, const char*, UINT, const int*) { return TRUE; }
-#ifndef ExtTextOut
-#define ExtTextOut ExtTextOutA
-#endif
 
 // CreateDIBSection: glyph bitmap'i için DIB. Stub: bit buffer'ı yok (nullptr).
-// Gerçek metin rasterizasyonu Faz 6'da (cross-platform font) gelecek.
 inline HBITMAP CreateDIBSection(HDC, const BITMAPINFO*, UINT, void** ppvBits, HANDLE, DWORD)
 {
 	if (ppvBits != nullptr) *ppvBits = nullptr;
 	return nullptr;
 }
+#endif
+#ifndef GetTextExtentPoint32
+#define GetTextExtentPoint32 GetTextExtentPoint32A
+#endif
+#ifndef ExtTextOut
+#define ExtTextOut ExtTextOutA
+#endif
 
 // --- GDI palette/DIB API'leri (JpegFile DIB yolu) ---
 // Asıl JPEG decode libjpeg ile yapılır; bu Windows DIB/palette yolu stub'lanır.
@@ -537,7 +564,22 @@ typedef WORD* LPWORD;
 
 inline BOOL GetClientRect(HWND, RECT* rc)
 {
-	if (rc != nullptr) { rc->left = 0; rc->top = 0; rc->right = 0; rc->bottom = 0; }
+	if (rc != nullptr)
+	{
+		rc->left = 0;
+		rc->top  = 0;
+#if defined(__APPLE__)
+		// SDL pencere boyutu. CLocalInput::Tick fare-buton flag'lerini imleç bu
+		// rect içindeyse set eder; 0x0 dönersek tıklama asla algılanmaz.
+		int w = 0, h = 0;
+		KO_Mac_GetClientSize(&w, &h);
+		rc->right  = w;
+		rc->bottom = h;
+#else
+		rc->right  = 0;
+		rc->bottom = 0;
+#endif
+	}
 	return TRUE;
 }
 #endif // KO_PATH_PROC_DEFINED

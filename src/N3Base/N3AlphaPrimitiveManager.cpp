@@ -5,6 +5,7 @@
 #include "StdAfxBase.h"
 #include "N3AlphaPrimitiveManager.h"
 #include "N3Base.h"
+#include "N3FanFix.h"
 
 CN3AlphaPrimitiveManager::CN3AlphaPrimitiveManager()
 {
@@ -183,6 +184,12 @@ void CN3AlphaPrimitiveManager::Render()
 					(LPDIRECT3DVERTEXBUFFER9) pBuffs[i]->pVertices, 0, pBuffs[i]->dwPrimitiveSize);
 				CN3Base::s_lpD3DDev->DrawPrimitive(
 					pBuffs[i]->ePrimitiveType, 0, pBuffs[i]->nPrimitiveCount);
+			}
+			else if (pBuffs[i]->ePrimitiveType == D3DPT_TRIANGLEFAN)
+			{
+				// fan→list (MoltenVK tile-flush önlemi) — partikül/efekt alpha primitive'leri
+				KO_DrawTriFanUP(pBuffs[i]->nPrimitiveCount, pBuffs[i]->pVertices,
+					pBuffs[i]->dwPrimitiveSize);
 			}
 			else
 			{

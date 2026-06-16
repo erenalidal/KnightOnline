@@ -1,4 +1,5 @@
 ﻿#include "StdAfx.h"
+#include <N3Base/N3FanFix.h>
 
 #if defined(LOGIN_SCENE_VERSION) && LOGIN_SCENE_VERSION == 1098
 #include "GameProcLogIn_1098.h"
@@ -260,7 +261,7 @@ void CGameProcLogIn_1098::Render()
 	s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
 	s_lpD3DDev->SetTexture(0, m_pTexBkg->Get());
 	s_lpD3DDev->SetFVF(FVF_TRANSFORMED);
-	s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, vMoon, sizeof(__VertexTransformed));
+	KO_DrawTriFanUP(2, vMoon, sizeof(__VertexTransformed));
 
 	s_lpD3DDev->SetRenderState(D3DRS_ZWRITEENABLE, dwZWrite);
 	// 달그리기..

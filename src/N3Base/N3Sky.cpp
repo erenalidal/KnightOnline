@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfxBase.h"
+#include "N3FanFix.h"
 #include "N3Sky.h"
 #include "N3PMesh.h"
 #include "N3PMeshInstance.h"
@@ -59,8 +60,8 @@ void CN3Sky::Render()
 		FVF_XYZCOLOR); // D3DFVF_XYZ | D3DFVF_DIFFUSE - Spreads the texture around the x, y, z vertices.
 
 	// Draws the front and bottom billboard.
-	s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, m_Bottom, sizeof(m_Bottom[0]));
-	s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, m_vFronts, sizeof(m_vFronts[0]));
+	KO_DrawTriFanUP(2, m_Bottom, sizeof(m_Bottom[0]));
+	KO_DrawTriFanUP(2, m_vFronts, sizeof(m_vFronts[0]));
 }
 
 void CN3Sky::Init()

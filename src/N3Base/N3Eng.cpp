@@ -524,7 +524,15 @@ void CN3Eng::Present(HWND hWnd, RECT* pRC)
 		pRC = &rc;
 	}
 
+#if !defined(_WIN32)
+	// dxvk-native + D3DSWAPEFFECT_DISCARD: D3D9'da DISCARD ile kısmi present (rect)
+	// tanımsızdır; dxvk bunu kısmi blit olarak yorumlayıp swapchain'in diğer
+	// image'lerini siyah bırakıyor → alternatif siyah kare (flicker). Tam present yap.
+	pRC          = nullptr;
+	HRESULT rval = s_lpD3DDev->Present(nullptr, nullptr, hWnd, nullptr);
+#else
 	HRESULT rval = s_lpD3DDev->Present(pRC, pRC, hWnd, nullptr);
+#endif
 	if (D3D_OK == rval)
 	{
 		s_hWndPresent = hWnd; // Present window handle 을 저장해 놓는다.

@@ -18,8 +18,9 @@ git submodule update --init --depth 1 \
   subprojects/dxbc-spirv subprojects/libdisplay-info
 git -C subprojects/dxbc-spirv submodule update --init --depth 1
 
-# 2) Yamayı uygula
+# 2) Yamaları uygula (ana repo + dxbc-spirv submodule)
 git apply ../../docs/patches/dxvk-native-macos.patch
+git -C subprojects/dxbc-spirv apply ../../../../docs/patches/dxbc-spirv-macos.patch
 
 # 3) Derle (gerekli brew paketleri: meson glslang molten-vk vulkan-headers
 #    vulkan-loader sdl2)
@@ -39,5 +40,16 @@ ninja -C build-mac src/d3d9/libdxvk_d3d9.0.dylib
 - `d3d9/meson.build`: macOS'ta `--version-script` atla (ld64 desteklemez).
 - `dxvk_context.cpp`: boş vertex binding'e Apple'da dummy buffer (MoltenVK nullDescriptor
   desteklemediğinden VK_NULL_HANDLE çökmeye yol açıyordu).
+- `meson.build` + `src/d3d9/shaders/d3d9_fixed_function_frag.glsl`: **renk düzeltmesi.**
+  FF shader'ı `t2d`'yi hem `sampler2DShadow` (depth-compare) hem `sampler2D` (renk)
+  olarak kullanıyordu; MoltenVK/SPIRV-Cross shadow kullanımını görünce texture'ı
+  `depth2d`'ye terfi ettirip renk `sample()`'ını skaler yapıyor → her şey gri.
+  macOS'ta `-DDXVK_MACOS` ile shadow yolu kapatıldı, texture renk olarak kalıyor.
+
+## dxbc-spirv-macos.patch (submodule)
+
+- `sm3/sm3_resources.cpp`: yukarıdakinin SM1-3 pixel shader karşılığı — legacy sampler
+  lowering'inde Dref (depth-compare) dalını Apple'da emit etme (aynı `depth2d` terfi
+  sorununu önler).
 
 Çalıştırma için bkz. `docs/MAC_PORT_ROADMAP.md` ve `scripts/run-mac-client.sh`.

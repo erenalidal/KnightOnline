@@ -35,6 +35,8 @@ set(N3BASE_COMMON_EFFECT_SOURCES
   N3FXPartParticles.h
   N3FXPlug.cpp
   N3FXPlug.h
+  N3FanFix.cpp
+  N3FanFix.h
   N3FXPMesh.cpp
   N3FXPMesh.h
   N3FXPMeshInstance.cpp
@@ -263,10 +265,21 @@ if(OPENKO_BUILD_CLIENT)
   if (NOT WIN32)
     set(_DXVK "${CMAKE_SOURCE_DIR}/deps/dxvk-native-src")
     # D3DX9 yardımcı fonksiyon şimi + WinCrypt (RC4/SHA-1) gerçek implementasyonu.
+    # gdi_text_mac.cpp: DFont metin rasterizasyonu (GDI → CoreText/CoreGraphics).
     target_sources(N3Base_client PRIVATE
       "${CMAKE_SOURCE_DIR}/src/platform/d3dx9-compat/d3dx9_tex_shim.cpp"
       "${CMAKE_SOURCE_DIR}/src/platform/win-compat/wincrypt_compat.cpp"
+      "${CMAKE_CURRENT_SOURCE_DIR}/gdi_text_mac.cpp"
+      "${CMAKE_CURRENT_SOURCE_DIR}/ini_compat.cpp"
     )
+    if (APPLE)
+      # DFont glyph rasterizer'ı için CoreText (ölçüm/glyph) + CoreGraphics (bitmap).
+      find_library(_CORETEXT CoreText REQUIRED)
+      find_library(_COREGRAPHICS CoreGraphics REQUIRED)
+      find_library(_COREFOUNDATION CoreFoundation REQUIRED)
+      target_link_libraries(N3Base_client PUBLIC
+        ${_CORETEXT} ${_COREGRAPHICS} ${_COREFOUNDATION})
+    endif ()
     target_include_directories(N3Base_client PUBLIC
       # Our compat layer FIRST so <d3dx9.h>/<mmsystem.h> resolve to our shims.
       "${CMAKE_SOURCE_DIR}/src/platform/dx-compat"

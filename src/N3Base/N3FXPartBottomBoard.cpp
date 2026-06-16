@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "StdAfxBase.h"
+#include "N3FanFix.h"
 #include "N3FXPartBottomBoard.h"
 #include "N3FXBundle.h"
 
@@ -443,7 +444,7 @@ void CN3FXPartBottomBoard::Render()
 		if (m_dwDoubleSide != dwCullMode)
 			s_lpD3DDev->SetRenderState(D3DRS_CULLMODE, m_dwDoubleSide);
 
-		s_lpD3DDev->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 8, m_pVB, sizeof(__VertexXyzColorT1));
+		KO_DrawTriFanUP(8, m_pVB, sizeof(__VertexXyzColorT1));
 
 		if (m_bAlpha != dwAlpha)
 			s_lpD3DDev->SetRenderState(D3DRS_ALPHABLENDENABLE, dwAlpha);

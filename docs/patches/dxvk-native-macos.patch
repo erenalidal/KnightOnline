@@ -1,3 +1,20 @@
+diff --git a/meson.build b/meson.build
+index d828de5..a8bf407 100644
+--- a/meson.build
++++ b/meson.build
+@@ -198,6 +198,12 @@ glsl_args = [
+ if get_option('debug')
+   glsl_args += ['-gVS']
+ endif
++if host_machine.system() == 'darwin'
++  # mac-port: MoltenVK/SPIRV-Cross, bir texture'ı depth-compare (shadow) ile
++  # kullanınca onu depth2d'ye terfi ettirir ve renk sample()'ı skaler döndürür
++  # (tüm texture'lar gri). FF shader'da shadow yolunu bu define ile kapatıyoruz.
++  glsl_args += ['-DDXVK_MACOS=1']
++endif
+ glsl_generator = generator(
+   glsl_compiler,
+   output    : [ '@BASENAME@.h' ],
 diff --git a/src/d3d9/meson.build b/src/d3d9/meson.build
 index 44a6371..73fd680 100644
 --- a/src/d3d9/meson.build
@@ -12,6 +29,39 @@ index 44a6371..73fd680 100644
    d3d9_ld_args      += [ '-Wl,--version-script', join_paths(meson.current_source_dir(), 'd3d9.sym') ]
    d3d9_link_depends += files('d3d9.sym')
  endif
+diff --git a/src/d3d9/shaders/d3d9_fixed_function_frag.glsl b/src/d3d9/shaders/d3d9_fixed_function_frag.glsl
+index 75b9940..19f20ea 100644
+--- a/src/d3d9/shaders/d3d9_fixed_function_frag.glsl
++++ b/src/d3d9/shaders/d3d9_fixed_function_frag.glsl
+@@ -230,18 +230,26 @@ vec4 sampleTexture(uint stage, vec4 texcoord, vec4 previousStageTextureVal) {
+     uint textureType = D3DRTYPE_TEXTURE + specUint(SpecSamplerType, 2u * stage, 2u);
+     switch (textureType) {
+         case D3DRTYPE_TEXTURE:
++#ifndef DXVK_MACOS
+             if (specBool(SpecSamplerDepthMode, stage)) {
+                 texcoord.z = adjustDref(texcoord.z, stage);
+                 texVal = texture(sampler2DShadow(t2d[stage], sampler_heap[loadSamplerHeapIndex(stage)]), texcoord.xyz).xxxx;
+-            } else {
++            } else
++#endif
++            {
++                // mac-port: t2d'yi yalnızca renk (sampler2D) olarak kullan; shadow
++                // kullanımı MoltenVK'da depth2d'ye terfi ettirip rengi gri yapardı.
+                 texVal = texture(sampler2D(t2d[stage], sampler_heap[loadSamplerHeapIndex(stage)]), texcoord.xy);
+             }
+             break;
+         case D3DRTYPE_CUBETEXTURE:
++#ifndef DXVK_MACOS
+             if (specBool(SpecSamplerDepthMode, stage)) {
+                 texcoord.w = adjustDref(texcoord.w, stage);
+                 texVal = texture(samplerCubeShadow(tcube[stage], sampler_heap[loadSamplerHeapIndex(stage)]), texcoord).xxxx;
+-            } else {
++            } else
++#endif
++            {
+                 texVal = texture(samplerCube(tcube[stage], sampler_heap[loadSamplerHeapIndex(stage)]), texcoord.xyz);
+             }
+             break;
 diff --git a/src/dxvk/dxvk_context.cpp b/src/dxvk/dxvk_context.cpp
 index 2b5f7f1..f348d56 100644
 --- a/src/dxvk/dxvk_context.cpp
@@ -199,3 +249,9 @@ index 203cb6d..48a26b6 100644
      if (libsdl == nullptr)
        throw DxvkError("SDL2 WSI: Failed to load SDL2 DLL.");
  
+diff --git a/subprojects/dxbc-spirv b/subprojects/dxbc-spirv
+--- a/subprojects/dxbc-spirv
++++ b/subprojects/dxbc-spirv
+@@ -1 +1 @@
+-Subproject commit 90acf4b8fe7e7f3cd183ef1c8c7d4f2151184336
++Subproject commit 90acf4b8fe7e7f3cd183ef1c8c7d4f2151184336-dirty

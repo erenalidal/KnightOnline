@@ -1,0 +1,26 @@
+diff --git a/sm3/sm3_resources.cpp b/sm3/sm3_resources.cpp
+index af1c591..5a8d934 100644
+--- a/sm3/sm3_resources.cpp
++++ b/sm3/sm3_resources.cpp
+@@ -605,6 +605,13 @@ void ResourceMap::emitSampleColorOrDref(
+         ir::SsaDef        lodBias,
+         ir::SsaDef        dx,
+         ir::SsaDef        dy) {
++#if !defined(__APPLE__)
++  // mac-port: MoltenVK/SPIRV-Cross, bir image herhangi bir depth-compare (Dref)
++  // işleminde kullanılınca onu `depth2d`'ye terfi ettirir; bu durumda renk-sample
++  // yolu skaler döndürüp tüm kanallara yayılır (tüm texture'lar gri görünür).
++  // D3D9 legacy sampler donanım depth-compare'i (gölge haritaları) Metal'de bu
++  // çift-kullanımla çalışmaz ve KO/çoğu D3D9 oyunu kullanmaz; bu yüzden Apple'da
++  // Dref yolunu hiç emit etmeyerek image'ı color texture2d olarak bırakıyoruz.
+   if (textureType != SamplerStateType::eTexture3D) {
+     auto isDepth = loadSamplerState(builder, samplerIndex,
+       ir::LegacySamplerStateLayout::eUseDepthCompare);
+@@ -617,6 +624,7 @@ void ResourceMap::emitSampleColorOrDref(
+     auto isDepthEnd = builder.add(ir::Op::ScopedEndIf(isDepthIf));
+     builder.rewriteOp(isDepthIf, ir::Op(builder.getOp(isDepthIf)).setOperand(0u, isDepthEnd));
+   }
++#endif
+ 
+   /* return sampleColor(...) */
+   emitSampleColorImageType(builder, texCoord, textureType, samplerIndex, descriptor, sampler, lod, lodBias, dx, dy);
