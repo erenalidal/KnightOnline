@@ -1428,7 +1428,9 @@ void CUser::UserDataSaveToAgent()
 void CUser::LogOut()
 {
 	int index = 0, sendIndex = 0, count = 0;
-	char sendBuffer[256] {};
+	// WIZ_LOGOUT paketine güncel envanter de eklendiğinden buffer büyütüldü
+	// (42 slot * 16 byte = 672B + başlık). Bkz. aşağıdaki item serileştirmesi.
+	char sendBuffer[1024] {};
 
 	spdlog::debug(
 		"User::LogOut: accountId={} charId={}", m_pUserData->m_Accountid, m_pUserData->m_id);
@@ -1450,6 +1452,20 @@ void CUser::LogOut()
 	SetShort(sendBuffer, _socketId, sendIndex);
 	SetString2(sendBuffer, m_pUserData->m_Accountid, sendIndex);
 	SetString2(sendBuffer, m_pUserData->m_id, sendIndex);
+
+	// ÖNEMLİ: Aujard envanteri yalnızca login'de DB'den okur; oyun içi değişiklikler ona
+	// yansımadığından logout'ta ESKİ envanteri DB'ye geri yazıyordu (item kaybı). Çözüm:
+	// güncel envanteri logout paketine ekle; Aujard UserLogOut bunu RAM'e yazıp DB'ye kaydeder.
+	// Format DBAgent::UpdateUser ile birebir: nNum(int32), sDuration(int16), sCount(int16),
+	// nSerialNum(int64) — equip + inventory (SLOT_MAX + HAVE_MAX = 42 slot).
+	for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
+	{
+		const _ITEM_DATA& item = m_pUserData->m_sItemArray[i];
+		SetDWORD(sendBuffer, item.nNum, sendIndex);
+		SetShort(sendBuffer, item.sDuration, sendIndex);
+		SetShort(sendBuffer, item.sCount, sendIndex);
+		SetInt64(sendBuffer, item.nSerialNum, sendIndex);
+	}
 
 	do
 	{

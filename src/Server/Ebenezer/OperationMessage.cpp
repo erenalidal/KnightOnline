@@ -401,14 +401,10 @@ bool OperationMessage::Process(const std::string_view command)
 				OffPermanent();
 				break;
 
-#ifdef _DEBUG
-			// Unofficial commands for debug builds/purposes only.
-			// +give_item itemId [count]
+			// +give_item itemId [count] — GM item oluşturma (Release'de de etkin; authority gerekir)
 			case "+give_item"_djb2:
 				GiveItem();
 				break;
-
-#endif
 
 			// Unhandled command.
 			default:
@@ -888,33 +884,40 @@ void OperationMessage::OffPermanent()
 	}
 }
 
-#ifdef _DEBUG
-// unoffical commands for debug builds/purposes only
-// +give_item itemId [count]
+// +give_item [charName] itemId [count] — GM item oluşturma (Release'de de etkin).
+// Chat'ten: srcUser hedeftir (+give_item itemId [count]).
+// Telnet'ten (srcUser yok): ilk argüman hedef karakter adıdır (+give_item charName itemId [count]).
 void OperationMessage::GiveItem()
 {
-	// Requires a user.
-	if (_srcUser == nullptr || GetArgCount() < 1)
+	if (GetArgCount() < 1)
 		return;
 
-	int itemId = ParseInt(0);
-	int count  = 1;
-	if (GetArgCount() >= 2)
+	CUser*                 pTarget = _srcUser;
+	std::shared_ptr<CUser> pTargetHold; // telnet hedefinin ömrünü tut
+	size_t                 base = 0;
+
+	if (pTarget == nullptr)
 	{
-		count = ParseInt(1);
+		if (GetArgCount() < 2)
+			return;
+		pTargetHold = _main->GetUserPtr(ParseString(0).c_str(), NameType::Character);
+		pTarget     = pTargetHold.get();
+		base        = 1;
 	}
+
+	if (pTarget == nullptr)
+		return;
+
+	int itemId = ParseInt(base);
+	int count  = (GetArgCount() >= base + 2) ? ParseInt(base + 1) : 1;
 
 	bool isSuccess = false;
 	if (itemId > 0 && count > 0)
-	{
-		isSuccess = _srcUser->GiveItem(itemId, count);
-	}
+		isSuccess = pTarget->GiveItem(itemId, count);
 
-	spdlog::warn("OperationMessage::GiveItem: invoked [srcUser={} authority={} itemId={} "
-				 "count={} success={}]",
-		_srcUser->m_pUserData->m_id, _srcUser->m_pUserData->m_bAuthority, itemId, count, isSuccess);
+	spdlog::warn("OperationMessage::GiveItem: invoked [target={} itemId={} count={} success={}]",
+		pTarget->m_pUserData->m_id, itemId, count, isSuccess);
 }
-#endif
 
 bool OperationMessage::ParseCommand(const std::string_view command, size_t& key)
 {

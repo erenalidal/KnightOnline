@@ -20,7 +20,9 @@ struct message_queue_impl;
 class SharedMemoryQueue
 {
 public:
-	static constexpr uint32_t MAX_MSG_SIZE = 512;
+	// 512 → 1024: logout'ta güncel envanter (42 slot, ~691B) Aujard'a gönderiliyor (item kaybı
+	// düzeltmesi). Eski 512 sınırı paketi reddediyordu (SMQ_PKTSIZEOVER). Bkz. User::LogOut.
+	static constexpr uint32_t MAX_MSG_SIZE = 1024;
 	static constexpr uint32_t MAX_NUM_MSG  = 4096;
 
 	bool IsOpen() const

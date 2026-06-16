@@ -97,10 +97,7 @@ protected:
 	void ChallengeStop();
 	void Permanent();
 	void OffPermanent();
-#ifdef _DEBUG
-	// unoffical commands for debug builds/purposes only
-	void GiveItem();
-#endif
+	void GiveItem(); // +give_item itemId [count] — Release'de de etkin (GM authority gerekir)
 
 	bool ParseCommand(const std::string_view command, size_t& key);
 

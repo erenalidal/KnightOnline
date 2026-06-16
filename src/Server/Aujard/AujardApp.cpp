@@ -343,6 +343,21 @@ void AujardApp::UserLogOut(const char* buffer)
 	if (strlen(charId) == 0)
 		return;
 
+	// Ebenezer logout paketine güncel envanteri ekledi (item kaybı düzeltmesi). Burada RAM'e
+	// yaz ki HandleUserLogout → UpdateUser bunu DB'ye kaydetsin. Format Ebenezer::LogOut ve
+	// DBAgent::UpdateUser ile birebir: nNum(int32), sDuration(int16), sCount(int16), nSerial(int64).
+	_USER_DATA* pUser = _dbAgent.UserData[userId];
+	if (pUser != nullptr)
+	{
+		for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
+		{
+			pUser->m_sItemArray[i].nNum       = static_cast<int32_t>(GetDWORD(buffer, index));
+			pUser->m_sItemArray[i].sDuration  = static_cast<int16_t>(GetShort(buffer, index));
+			pUser->m_sItemArray[i].sCount     = static_cast<int16_t>(GetShort(buffer, index));
+			pUser->m_sItemArray[i].nSerialNum = GetInt64(buffer, index);
+		}
+	}
+
 	HandleUserLogout(userId, UPDATE_LOGOUT);
 
 	SetByte(sendBuffer, WIZ_LOGOUT, sendIndex);
