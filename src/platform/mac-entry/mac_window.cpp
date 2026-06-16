@@ -295,8 +295,15 @@ HWND KO_Mac_GetActiveWindow()
 	// (fare+klavye). Vulkan penceresinde SDL'in INPUT_FOCUS bayrağı odak geçişlerinde
 	// kararsız olabiliyor → oynarken bile girdi düşüyor (tıklama "ilk seferde almıyor" +
 	// gecikme hissi). Fare pencere üstündeyse (MOUSE_FOCUS) de aktif say → girdi düşmez.
-	if (g_macWindow != nullptr
-		&& (SDL_GetWindowFlags(g_macWindow) & (SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS)))
+	if (g_macWindow == nullptr)
+		return nullptr;
+	if (SDL_GetWindowFlags(g_macWindow) & (SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS))
+		return reinterpret_cast<HWND>(g_macWindow);
+	// SDL INPUT_FOCUS, pencere öne getirilse (frontmost) bile bazen geç set ediliyor →
+	// klavye/DirectInput Tick'i o frame girdiyi atlıyor (tuşlar düşüyor). Pencere GÖRÜNÜR
+	// (occluded/minimize değil) ise aktif say: klavye olayı zaten yalnızca öndeki pencereye
+	// gelir, dolayısıyla bu güvenli ve odak-geçişi girdi düşmesini önler.
+	if (KO_Mac_NSWindowVisible(g_macWindow) != 0)
 		return reinterpret_cast<HWND>(g_macWindow);
 	return nullptr;
 }
