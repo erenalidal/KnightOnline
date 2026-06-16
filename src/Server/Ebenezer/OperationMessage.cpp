@@ -9,6 +9,7 @@
 #include <shared/StringUtils.h>
 #include <spdlog/spdlog.h>
 
+#include <ctime>
 #include <sstream>
 #include <stdexcept>
 
@@ -404,6 +405,11 @@ bool OperationMessage::Process(const std::string_view command)
 			// +give_item itemId [count] — GM item oluşturma (Release'de de etkin; authority gerekir)
 			case "+give_item"_djb2:
 				GiveItem();
+				break;
+
+			// +exp_event <yüzde> <dakika> — sunucu-geneli süreli EXP bonusu (GM)
+			case "+exp_event"_djb2:
+				ExpEvent();
 				break;
 
 			// Unhandled command.
@@ -917,6 +923,34 @@ void OperationMessage::GiveItem()
 
 	spdlog::warn("OperationMessage::GiveItem: invoked [target={} itemId={} count={} success={}]",
 		pTarget->m_pUserData->m_id, itemId, count, isSuccess);
+}
+
+// +exp_event <yüzde> <dakika> — sunucu-geneli süreli EXP bonusu. Örn. "+exp_event 200 60" → 1 saat
+// boyunca tüm oyunculara x2 exp. Yüzde 100 ya da dakika<=0 → kapatır. Süre dolunca otomatik normal.
+void OperationMessage::ExpEvent()
+{
+	if (_main == nullptr || GetArgCount() < 1)
+		return;
+
+	int rate    = ParseInt(0);
+	int minutes = (GetArgCount() >= 2) ? ParseInt(1) : 0;
+
+	if (rate < 0)
+		rate = 0;
+	if (rate > 10000)
+		rate = 10000; // güvenlik (x100 üst sınır)
+
+	if (rate == 100 || minutes <= 0)
+	{
+		_main->m_nExpEventRate = 100;
+		_main->m_tExpEventEnd  = 0;
+		spdlog::warn("OperationMessage::ExpEvent: EXP bonusu KAPATILDI");
+		return;
+	}
+
+	_main->m_nExpEventRate = rate;
+	_main->m_tExpEventEnd  = time(nullptr) + static_cast<time_t>(minutes) * 60;
+	spdlog::warn("OperationMessage::ExpEvent: EXP bonusu ACIK rate={}% sure={}dk", rate, minutes);
 }
 
 bool OperationMessage::ParseCommand(const std::string_view command, size_t& key)

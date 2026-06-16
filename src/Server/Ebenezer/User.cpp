@@ -1458,13 +1458,22 @@ void CUser::LogOut()
 	// güncel envanteri logout paketine ekle; Aujard UserLogOut bunu RAM'e yazıp DB'ye kaydeder.
 	// Format DBAgent::UpdateUser ile birebir: nNum(int32), sDuration(int16), sCount(int16),
 	// nSerialNum(int64) — equip + inventory (SLOT_MAX + HAVE_MAX = 42 slot).
-	for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
+	//
+	// GUARD (item kaybı önleme): envanteri YALNIZCA oyuncu dünyaya GİRDİYSE (CONNECTION_STATE_
+	// GAMESTART) gönder. Karakter-seçimde kopma olursa m_sItemArray henüz yüklü DEĞİL → boş/çöp
+	// gönderip DB'yi silmemek için flag=0 yazılır; Aujard yüklediği (DB) kopyayı korur.
+	bool bInGame = (GetState() == CONNECTION_STATE_GAMESTART);
+	SetByte(sendBuffer, bInGame ? 1 : 0, sendIndex); // 1 = envanter dahil, 0 = dokunma
+	if (bInGame)
 	{
-		const _ITEM_DATA& item = m_pUserData->m_sItemArray[i];
-		SetDWORD(sendBuffer, item.nNum, sendIndex);
-		SetShort(sendBuffer, item.sDuration, sendIndex);
-		SetShort(sendBuffer, item.sCount, sendIndex);
-		SetInt64(sendBuffer, item.nSerialNum, sendIndex);
+		for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
+		{
+			const _ITEM_DATA& item = m_pUserData->m_sItemArray[i];
+			SetDWORD(sendBuffer, item.nNum, sendIndex);
+			SetShort(sendBuffer, item.sDuration, sendIndex);
+			SetShort(sendBuffer, item.sCount, sendIndex);
+			SetInt64(sendBuffer, item.nSerialNum, sendIndex);
+		}
 	}
 
 	do
@@ -3802,6 +3811,14 @@ void CUser::ExpChange(int iExp)
 		&& iExp < 0)
 		iExp = iExp / 10;
 */
+
+	// Sunucu-geneli süreli EXP bonusu (GM telnet: +exp_event <yüzde> <dakika>). Yalnızca pozitif
+	// (kazanılan) exp'e uygula; rate yüzde (200 = x2). Süre dolunca (now >= end) otomatik normal.
+	if (iExp > 0 && m_pMain != nullptr && m_pMain->m_nExpEventRate != 100
+		&& time(nullptr) < m_pMain->m_tExpEventEnd)
+	{
+		iExp = static_cast<int>(static_cast<int64_t>(iExp) * m_pMain->m_nExpEventRate / 100);
+	}
 
 	m_pUserData->m_iExp += iExp;
 

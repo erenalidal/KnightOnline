@@ -98,6 +98,7 @@ protected:
 	void Permanent();
 	void OffPermanent();
 	void GiveItem(); // +give_item itemId [count] — Release'de de etkin (GM authority gerekir)
+	void ExpEvent(); // +exp_event <yüzde> <dakika> — sunucu-geneli süreli EXP bonusu (GM)
 
 	bool ParseCommand(const std::string_view command, size_t& key);
 

@@ -298,6 +298,12 @@ public:
 	int m_nYear, m_nMonth, m_nDate, m_nHour, m_nMin, m_nWeather, m_nAmount;
 	int m_nCastleCapture;
 
+	// Sunucu-geneli süreli EXP bonusu (GM telnet komutu +exp_event <yüzde> <dakika>). Rate yüzde
+	// cinsinden (100 = normal, 200 = x2). m_tExpEventEnd wall-clock bitiş anı (time(nullptr));
+	// CUser::ExpChange pozitif exp'i now < end iken rate ile çarpar, süre dolunca otomatik normale döner.
+	int    m_nExpEventRate = 100;
+	time_t m_tExpEventEnd  = 0;
+
 	// ~Yookozuna 2002.06.12
 	uint8_t m_byBattleOpen,
 		m_byOldBattleOpen; // 0:전쟁중이 아님, 1:전쟁중(국가간전쟁), 2:눈싸움전쟁

@@ -346,8 +346,13 @@ void AujardApp::UserLogOut(const char* buffer)
 	// Ebenezer logout paketine güncel envanteri ekledi (item kaybı düzeltmesi). Burada RAM'e
 	// yaz ki HandleUserLogout → UpdateUser bunu DB'ye kaydetsin. Format Ebenezer::LogOut ve
 	// DBAgent::UpdateUser ile birebir: nNum(int32), sDuration(int16), sCount(int16), nSerial(int64).
-	_USER_DATA* pUser = _dbAgent.UserData[userId];
-	if (pUser != nullptr)
+	//
+	// GUARD (item kaybı önleme): flag byte = oyuncu dünyaya girmiş miydi. 0 ise (char-select'te
+	// kopma / yarım durum) Ebenezer envanteri GÖNDERMEZ → biz de UserData'ya DOKUNMAYIZ; böylece
+	// UpdateUser login'de DB'den yüklenen kopyayı (değişmemiş) yazar → restart/kopma envanteri SİLMEZ.
+	uint8_t bHasItems = GetByte(buffer, index);
+	_USER_DATA* pUser  = _dbAgent.UserData[userId];
+	if (bHasItems != 0 && pUser != nullptr)
 	{
 		for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
 		{

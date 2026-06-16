@@ -5,6 +5,10 @@
 #   1. Server'lar derlenmiş olmalı: cmake --build build-mac
 #   2. Docker SQL Server ayakta: bash docker/clean_setup.sh
 #   3. FreeTDS kurulu + build-mac/odbc/{odbc.ini,odbcinst.ini} mevcut
+#      ÖNEMLİ: odbc.ini DSN'inde "ClientCharset = CP1252" ZORUNLU. KO, item verisini CP1252
+#      varchar kolonlarda binary olarak saklar; FreeTDS varsayılan UTF-8 client charset'i
+#      yüksek byte'ları (>=0x80) dönüştürüp item'ları bozar (login'de "Item Drop" → kalıcı
+#      item kaybı). CP1252 = kolon codepage'i → dönüşüm identity, item korunur.
 set -e
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
