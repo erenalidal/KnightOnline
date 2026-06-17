@@ -717,6 +717,22 @@ void AujardApp::UserDataSave(const char* buffer)
 	if (pUser == nullptr)
 		return;
 
+	// PERİYODİK ENVANTER KAYDI (crash veri güvenliği): Ebenezer periyodik save'e GÜNCEL envanteri
+	// ekledi (logout ile birebir format). flag=1 ise UserData'ya yaz ki UpdateUser STALE login
+	// kopyası yerine güncel item'ları kaydetsin (eskiden periyodik save oturum-içi item'ları DB'den
+	// silebiliyordu). flag=0 (oyun-dışı/eski client) → dokunma, eski davranış korunur.
+	uint8_t bHasItems = GetByte(buffer, index);
+	if (bHasItems != 0)
+	{
+		for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
+		{
+			pUser->m_sItemArray[i].nNum       = static_cast<int32_t>(GetDWORD(buffer, index));
+			pUser->m_sItemArray[i].sDuration  = static_cast<int16_t>(GetShort(buffer, index));
+			pUser->m_sItemArray[i].sCount     = static_cast<int16_t>(GetShort(buffer, index));
+			pUser->m_sItemArray[i].nSerialNum = GetInt64(buffer, index);
+		}
+	}
+
 	bool userdataSuccess = HandleUserUpdate(userId, *pUser, UPDATE_PACKET_SAVE);
 	if (!userdataSuccess)
 	{

@@ -207,6 +207,7 @@ public:
 	uint8_t m_byInvisibilityState            = 0;
 	int16_t m_sDirection                     = 0;
 	bool m_bIsChicken                        = false;
+	bool m_bAutoLoot                         = false; // +autoloot: mob loot'u direkt envantere
 	uint8_t m_byKnightsRank                  = 0;
 	uint8_t m_byPersonalRank                 = 0;
 

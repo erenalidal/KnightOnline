@@ -152,6 +152,14 @@ EbenezerApp::EbenezerApp(EbenezerLogger& logger) :
 	_packetCheckThread = std::make_unique<TimerThread>(
 		6min, std::bind(&EbenezerApp::WritePacketLog, this));
 
+	// Sunucu-taraflı periyodik envanter kaydı: client'ın WIZ_DATASAVE paketine
+	// güvenmek yerine (macOS'ta pencere arka plandayken client tick'i durup paket
+	// gönderilmiyor) Ebenezer her tick'te bir grup in-game kullanıcının güncel
+	// envanterini Aujard'a kaydeder. Sunucu çökse/kapansa bile veri kaybı penceresi
+	// ~1-2 dakikaya iner. Stagger için PeriodicUserDataSave kendi içinde batch yapar.
+	_periodicSaveThread = std::make_unique<TimerThread>(
+		30s, std::bind(&EbenezerApp::PeriodicUserDataSave, this));
+
 	_readQueueThread = std::make_unique<EbenezerReadQueueThread>();
 }
 
@@ -206,6 +214,15 @@ EbenezerApp::~EbenezerApp()
 		_packetCheckThread->shutdown();
 
 		spdlog::info("EbenezerApp::~EbenezerApp: packet check thread stopped.");
+	}
+
+	if (_periodicSaveThread != nullptr)
+	{
+		spdlog::info("EbenezerApp::~EbenezerApp: Shutting down periodic save thread...");
+
+		_periodicSaveThread->shutdown();
+
+		spdlog::info("EbenezerApp::~EbenezerApp: periodic save thread stopped.");
 	}
 
 	if (_readQueueThread != nullptr)
@@ -510,6 +527,7 @@ bool EbenezerApp::OnStart()
 	_aliveTimeThread->start();
 	_marketBBSTimeThread->start();
 	_packetCheckThread->start();
+	_periodicSaveThread->start();
 
 	_readQueueThread->start();
 
@@ -3099,6 +3117,38 @@ void EbenezerApp::CheckAliveUser()
 			pUser->m_sAliveCount++;
 		}
 	}
+}
+
+// Her tick'te (30s) TÜM in-game kullanıcıların güncel envanterini Aujard'a kaydeder.
+// Böylece sunucu hard-crash (kill -9 / panic) olsa bile veri kaybı penceresi en fazla
+// ~30 saniyedir (temiz çıkış/Alt+F4 zaten LogOut guard'ı ile kaydediliyor; bu periyodik
+// save SADECE temiz logout fırsatı olmayan çökme senaryosu içindir).
+// NOT: GetUserSocketCount() bağlı kullanıcı değil MAX_USER (3000 slot) döndürür; çoğu slot
+// null'dır ve null kontrolü ucuzdur, bu yüzden her tick'te tüm slotları gezmek sorun değil.
+// UserDataSaveToAgent yalnızca SMQ kuyruğuna PutData yapar (DB/socket bloklaması yok) ve
+// client'ın WIZ_DATASAVE'iyle birebir aynı kod yoludur; timer thread'inden güvenle çağrılır.
+void EbenezerApp::PeriodicUserDataSave()
+{
+	int socketCount = GetUserSocketCount();
+	if (socketCount <= 0)
+		return;
+
+	int saved = 0;
+	for (int i = 0; i < socketCount; i++)
+	{
+		auto pUser = GetUserPtrUnchecked(i);
+		if (pUser == nullptr)
+			continue;
+
+		if (pUser->GetState() == CONNECTION_STATE_GAMESTART)
+		{
+			pUser->UserDataSaveToAgent();
+			saved++;
+		}
+	}
+
+	if (saved > 0)
+		spdlog::debug("EbenezerApp::PeriodicUserDataSave: saved {} in-game user(s)", saved);
 }
 
 void EbenezerApp::KickOutAllUsers()

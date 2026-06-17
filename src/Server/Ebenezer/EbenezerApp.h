@@ -103,6 +103,7 @@ public:
 	int64_t GenerateItemSerial();
 	void KickOutAllUsers();
 	void CheckAliveUser();
+	void PeriodicUserDataSave();
 	int GetKnightsGrade(int nPoints);
 	void WritePacketLog();
 	void MarketBBSSellDelete(int16_t index);
@@ -397,6 +398,7 @@ private:
 	std::unique_ptr<TimerThread> _aliveTimeThread;
 	std::unique_ptr<TimerThread> _marketBBSTimeThread;
 	std::unique_ptr<TimerThread> _packetCheckThread;
+	std::unique_ptr<TimerThread> _periodicSaveThread;
 
 	std::unique_ptr<ReadQueueThread> _readQueueThread;
 

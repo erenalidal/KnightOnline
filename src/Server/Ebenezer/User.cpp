@@ -1407,7 +1407,8 @@ void CUser::SendGmToggleToAI(bool bGod)
 void CUser::UserDataSaveToAgent()
 {
 	int sendIndex = 0, retvalue = 0;
-	char sendBuffer[256] {};
+	// Periyodik kayıta güncel envanter de eklendiğinden buffer büyütüldü (256→1024, ~691B item).
+	char sendBuffer[1024] {};
 
 	if (strlen(m_pUserData->m_id) == 0 || strlen(m_pUserData->m_Accountid) == 0)
 		return;
@@ -1416,6 +1417,24 @@ void CUser::UserDataSaveToAgent()
 	SetShort(sendBuffer, _socketId, sendIndex);
 	SetString2(sendBuffer, m_pUserData->m_Accountid, sendIndex);
 	SetString2(sendBuffer, m_pUserData->m_id, sendIndex);
+
+	// PERİYODİK ENVANTER KAYDI (crash veri güvenliği): Aujard yalnızca login'de DB'den item okur;
+	// periyodik UserDataSave eskiden o STALE kopyayı yazıyordu (oturum-içi yeni item'lar DB'den
+	// silinebiliyordu). Çözüm: GÜNCEL envanteri de gönder (logout ile birebir format: flag +
+	// 42 slot). Aujard bunu UserData'ya yazıp UpdateUser ile kaydeder. flag=0 (oyun-dışı) → dokunma.
+	bool bInGame = (GetState() == CONNECTION_STATE_GAMESTART);
+	SetByte(sendBuffer, bInGame ? 1 : 0, sendIndex);
+	if (bInGame)
+	{
+		for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
+		{
+			const _ITEM_DATA& item = m_pUserData->m_sItemArray[i];
+			SetDWORD(sendBuffer, item.nNum, sendIndex);
+			SetShort(sendBuffer, item.sDuration, sendIndex);
+			SetShort(sendBuffer, item.sCount, sendIndex);
+			SetInt64(sendBuffer, item.nSerialNum, sendIndex);
+		}
+	}
 
 	retvalue = m_pMain->m_LoggerSendQueue.PutData(sendBuffer, sendIndex);
 	if (retvalue >= SMQ_FULL)
@@ -3281,6 +3300,10 @@ void CUser::SetSlotItemValue()
 					|| m_pUserData->m_sClass == CLASS_EL_BLADE))
 				//			m_sItemHit += item_hit * (double) (m_pUserData->m_bstrSkill[PRO_SKILL1] / 60.0);    // 성래씨 요청 ^^;
 				m_sItemHit += static_cast<int16_t>(item_hit * 0.5f);
+			// Dagger dual-wield (Rogue/Assassin): off-hand dagger hasarı da katılır (0.5x).
+			// Eskiden yalnızca Berserker/Blade alıyordu → Rogue/Assassin dual dagger gimped'di.
+			else if (pTable->Kind / 10 == WEAPON_DAGGER)
+				m_sItemHit += static_cast<int16_t>(item_hit * 0.5f);
 		}
 
 		m_sItemMaxHp       += pTable->MaxHpBonus;
@@ -4154,6 +4177,7 @@ void CUser::SetUserAbility()
 
 	model::Item* pItem    = nullptr;
 	bool bHaveBow         = false;
+	bool bMeleeUseDex     = false; // dagger = dex-tabanlı silah → melee atağı DEX ile hesapla
 	double hitcoefficient = 0.0;
 	if (m_pUserData->m_sItemArray[RIGHTHAND].nNum != 0)
 	{
@@ -4165,6 +4189,7 @@ void CUser::SetUserAbility()
 			{
 				case WEAPON_DAGGER:
 					hitcoefficient = p_TableCoefficient->ShortSword;
+					bMeleeUseDex   = true; // dagger DEX ile (Rogue/Assassin dex-tabanlı), STR değil
 					break;
 
 				case WEAPON_SWORD:
@@ -4247,9 +4272,12 @@ void CUser::SetUserAbility()
 	}
 	else
 	{
-		m_sTotalHit = static_cast<int16_t>(
-			((0.005f * m_sItemHit * (temp_str + 40))
-				+ (hitcoefficient * m_sItemHit * m_pUserData->m_bLevel * temp_str))
+		// Dagger (dex-tabanlı silah) DEX kullanır; diğer melee (sword/axe/mace/spear) STR.
+		// Eskiden tüm melee STR kullanıyordu → dex build Rogue/Assassin dagger'la gimped'di.
+		const int meleeStat = bMeleeUseDex ? temp_dex : temp_str;
+		m_sTotalHit         = static_cast<int16_t>(
+            ((0.005f * m_sItemHit * (meleeStat + 40))
+				+ (hitcoefficient * m_sItemHit * m_pUserData->m_bLevel * meleeStat))
 			+ 3);
 	}
 
