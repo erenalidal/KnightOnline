@@ -6813,6 +6813,13 @@ void CGameProcMain::MsgRecv_NoahChange(Packet& pkt) // 노아 변경..
 			MsgOutput(szMsg, 0xff6565ff);
 			break;
 
+		// Auto-loot ile toplanan para: elle loot (UIDroppedItemDlg) ile AYNI mesaj+renk
+		// (IDS_DROPPED_NOAH_GET + 0xff9b9bff) — kullanıcı tutarlılık istedi.
+		case GOLD_CHANGE_LOOT:
+			szMsg = fmt::format_text_resource(IDS_DROPPED_NOAH_GET, dwGoldOffset);
+			MsgOutput(szMsg, 0xff9b9bff);
+			break;
+
 		case GOLD_CHANGE_LOSE:
 			szMsg = fmt::format_text_resource(IDS_NOAH_CHANGE_LOST, dwGoldOffset);
 			MsgOutput(szMsg, 0xffff3b3b);

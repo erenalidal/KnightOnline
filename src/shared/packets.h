@@ -296,7 +296,8 @@ enum e_GoldChangeOpcode : uint8_t
 {
 	GOLD_CHANGE_GAIN  = 1,
 	GOLD_CHANGE_LOSE  = 2,
-	GOLD_CHANGE_SPEND = 3
+	GOLD_CHANGE_SPEND = 3,
+	GOLD_CHANGE_LOOT  = 4  // auto-loot ile toplanan para → elle-loot ile aynı mesaj/renk
 };
 
 enum e_ZoneChangeOpcode : uint8_t

@@ -12452,7 +12452,7 @@ void CUser::SendItemWeight()
 	Send(sendBuffer, sendIndex);
 }
 
-void CUser::GoldGain(int amount)
+void CUser::GoldGain(int amount, uint8_t byType)
 {
 	int sendIndex = 0;
 	char sendBuffer[256] {};
@@ -12470,7 +12470,7 @@ void CUser::GoldGain(int amount)
 	CurrencyChange(m_pUserData->m_iGold, amount);
 
 	SetByte(sendBuffer, WIZ_GOLD_CHANGE, sendIndex);
-	SetByte(sendBuffer, GOLD_CHANGE_GAIN, sendIndex);
+	SetByte(sendBuffer, byType, sendIndex); // GAIN ya da LOOT (auto-loot)
 	SetDWORD(sendBuffer, amount, sendIndex);
 	SetDWORD(sendBuffer, m_pUserData->m_iGold, sendIndex);
 	Send(sendBuffer, sendIndex);

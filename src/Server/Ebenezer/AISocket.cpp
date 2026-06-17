@@ -1272,7 +1272,7 @@ void CAISocket::RecvNpcGiveItem(char* pBuf)
 			{
 				// GoldChange PvP altın-transferi içindi (zone<3 return + pTUser gerektirir) → para
 				// hiç eklenmiyordu. GoldGain doğru fonksiyon: altını ekler + WIZ_GOLD_CHANGE gönderir.
-				pUser->GoldGain(sCount[i]);
+				pUser->GoldGain(sCount[i], GOLD_CHANGE_LOOT); // elle-loot ile aynı mesaj/renk
 				gotGold += sCount[i];
 				pItem->itemid[i] = 0;
 			}
