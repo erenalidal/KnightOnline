@@ -1503,7 +1503,7 @@ bool AIServerApp::AddObjectEventNpc(_OBJECT_EVENT* pEvent, int zone_number)
 }
 
 // +monsummon: tek bir mob'u (sid) verilen zone/konumda canlı spawn eder.
-bool AIServerApp::SpawnMonster(int16_t sid, int16_t zone, float x, float y, float z)
+bool AIServerApp::SpawnMonster(int16_t sid, int16_t zone, float x, float y, float z, bool bOneTime)
 {
 	// 1) Zone bu AIServer'a ait mi + map yüklü mü?
 	int nServerNum = GetServerNumber(zone);
@@ -1534,14 +1534,18 @@ bool AIServerApp::SpawnMonster(int16_t sid, int16_t zone, float x, float y, floa
 		return false;
 	}
 
-	// 3) Benzersiz nid: nid'ler 0.._totalNpcCount-1 dolu; sıradakini al.
-	//    nid + NPC_BAND client'a Short olarak gidiyor → taşma olmamalı.
-	if (_totalNpcCount + NPC_BAND >= 32767)
+	// 3) Benzersiz nid: startup nid'leri 0.._totalNpcCount-1 dolu; ayrı bir sayaçtan
+	//    sıradakini al. _totalNpcCount'a DOKUNMA — yoksa NPC'nin SetLive'ı
+	//    _loadedNpcCount'u _totalNpcCount'a eşitleyip "All NPCs initialized" +
+	//    GameServerAcceptThread()'i her summon'da yeniden tetikler (startup-only iş).
+	if (_summonNidNext < 0)
+		_summonNidNext = static_cast<int>(_totalNpcCount);
+	if (_summonNidNext + NPC_BAND >= 32767)
 	{
-		spdlog::error("AIServerApp::SpawnMonster: nid space full (total={})", _totalNpcCount);
+		spdlog::error("AIServerApp::SpawnMonster: nid space full (next={})", _summonNidNext);
 		return false;
 	}
-	int16_t newNid = static_cast<int16_t>(_totalNpcCount);
+	int16_t newNid = static_cast<int16_t>(_summonNidNext);
 
 	// 4) Boş thread slot'u bul; yoksa yeni thread kur.
 	CNpcThread* pThread = nullptr;
@@ -1595,6 +1599,7 @@ bool AIServerApp::SpawnMonster(int16_t sid, int16_t zone, float x, float y, floa
 	pNpc->m_ZoneIndex      = nZoneIndex;
 	pNpc->m_byObjectType   = NORMAL_OBJECT;
 	pNpc->m_bFirstLive     = 1; // ilk doğuş
+	pNpc->m_bSummoned      = bOneTime; // tek-seferlik (+monsummon) → ölünce respawn yok, kaldırılır
 	pNpc->m_NpcState       = NPC_LIVE;
 	pNpc->m_sThreadNumber  = pThread->m_sThreadNumber;
 
@@ -1610,7 +1615,7 @@ bool AIServerApp::SpawnMonster(int16_t sid, int16_t zone, float x, float y, floa
 		return false;
 	}
 
-	_totalNpcCount++; // nid tüketildi
+	_summonNidNext++; // nid tüketildi (_totalNpcCount'a DOKUNMA — yukarıdaki nota bak)
 
 	// 7) Pointer'ı EN SON yaz (thread ya null görür/atlar, ya tam-init NPC görür → yarış yok).
 	pThread->m_pNpc[slot] = pNpc;

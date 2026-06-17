@@ -107,7 +107,8 @@ enum e_ChatCmd : uint8_t
 	// OperationMessage'a gider. Enum sırası GameProcMain g_szCmdMsg yükleme sırasıyla AYNI olmalı.
 	CMD_GODMODE,   // +godmode (30000 hasar + no-aggro toggle)
 	CMD_AUTOLOOT,  // +autoloot (loot direkt envantere toggle)
-	CMD_MONSUMMON, // +monsummon (bulunduğun yere mob spawn — argümansız sid 100)
+	CMD_MONSUMMON, // +monsummon (tek-seferlik mob — ölünce respawn yok)
+	CMD_MONSPAWN,  // +monspawn (respawn'lı mob — spawn point gibi)
 
 	CMD_COUNT,
 	CMD_UNKNOWN

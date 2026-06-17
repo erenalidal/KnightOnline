@@ -104,6 +104,9 @@ protected:
 	void GodMode();   // +godmode on/off — GM 30000-hasar + no-aggro aç/kapa (oyun-içi GM)
 	void AutoLoot();  // +autoloot [on/off] — mob loot'u direkt envantere (arg yoksa toggle)
 	void Repair();    // +repair — tüm itemları onar (durability max)
+	// MonSummon() yukarıda (stub listesinde) zaten tanımlı — implement edildi.
+	void MonSpawn();  // +monspawn <sid> [adet] — respawn'lı mob (spawn point gibi)
+	void MonSummonImpl(bool bOneTime); // ortak gönderim (+monsummon/+monspawn)
 	// Ortak yardımcı: byType 0=drop, 1=coin. label duyuru metni.
 	void EventRateCmd(uint8_t byType, const char* label);
 

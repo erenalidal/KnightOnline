@@ -143,6 +143,7 @@ public:
 	int16_t m_sMaxPathCount;  // NPC의 PathList Max Count
 
 	bool m_bFirstLive;        // NPC 가 처음 생성되는지 죽었다 살아나는지 판단.
+	bool m_bSummoned = false; // +monsummon ile çağrılan tek-seferlik mob → ölünce respawn YOK, kaldırılır.
 	uint8_t m_NpcState;       // NPC의 상태 - 살았다, 죽었다, 서있다 등등...
 	int16_t m_ZoneIndex;      // NPC 가 존재하고 있는 존의 인덱스
 

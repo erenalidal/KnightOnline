@@ -443,6 +443,11 @@ bool OperationMessage::Process(const std::string_view command)
 				MonSummon();
 				break;
 
+			// +monspawn <sid> [adet] — respawn'lı mob (öldürülünce yeniden doğar, spawn point gibi)
+			case "+monspawn"_djb2:
+				MonSpawn();
+				break;
+
 			// Unhandled command.
 			default:
 				return false;
@@ -508,9 +513,10 @@ void OperationMessage::Assault()
 	// TODO
 }
 
-// +monsummon <monsterSid> [adet] — GM, bulunduğu yere mob spawn eder (test/araç).
-// Komut Ebenezer'da işlenir ama NPC'ler AIServer'da; AG_MONSTER_SUMMON ile AIServer'a iletilir.
-void OperationMessage::MonSummon()
+// Ortak: GM'in bulunduğu yere mob spawn eder. bOneTime=true → +monsummon (ölünce respawn yok),
+// false → +monspawn (normal spawn point gibi respawn eder). NPC'ler AIServer'da; AG_MONSTER_SUMMON
+// ile iletilir.
+void OperationMessage::MonSummonImpl(bool bOneTime)
 {
 	if (_srcUser == nullptr) // telnet'te kaynak konum yok → oyun-içi GM gerekir
 		return;
@@ -536,12 +542,23 @@ void OperationMessage::MonSummon()
 	SetFloat(sendBuffer, pData->m_curx, sendIndex);
 	SetFloat(sendBuffer, pData->m_cury, sendIndex);
 	SetFloat(sendBuffer, pData->m_curz, sendIndex);
+	SetByte(sendBuffer, bOneTime ? 1 : 0, sendIndex); // tek-seferlik mi
 	_main->Send_AIServer(pData->m_bZone, sendBuffer, sendIndex);
 
-	spdlog::warn("OperationMessage::MonSummon: charId={} sid={} count={} zone={} x={:.0f} y={:.0f} z={:.0f}",
-		_srcUser->m_pUserData->m_id, sid, count, (int) pData->m_bZone, pData->m_curx, pData->m_cury,
-		pData->m_curz);
-	_srcUser->SendSysMsg(fmt::format("[GM] Monster summon istegi gonderildi: sid={} x{}", sid, count));
+	_srcUser->SendSysMsg(fmt::format("[GM] {}: sid={} x{}", bOneTime ? "Monster summon" : "Monster spawn",
+		sid, count));
+}
+
+// +monsummon <sid> [adet] — tek-seferlik (öldürülünce respawn YOK).
+void OperationMessage::MonSummon()
+{
+	MonSummonImpl(true);
+}
+
+// +monspawn <sid> [adet] — respawn'lı (spawn point gibi, öldürülünce yeniden doğar).
+void OperationMessage::MonSpawn()
+{
+	MonSummonImpl(false);
 }
 
 void OperationMessage::MonSummonAll()

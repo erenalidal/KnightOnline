@@ -988,7 +988,23 @@ void CAISocket::RecvNpcInfo(char* pBuf)
 
 	CNpc* pNpc    = _main->m_NpcMap.GetData(instanceId);
 	if (pNpc == nullptr)
-		return;
+	{
+		// Runtime spawn (+monsummon): NPC Ebenezer'ın m_NpcMap'inde yok (orası startup'ta
+		// RecvNpcInfoAll ile doldurulur). Yeni bir CNpc oluşturup ekle — yoksa aşağıdaki
+		// WIZ_NPC_INOUT(NPC_IN) Send_Region broadcast'ine hiç ulaşılmaz ve client mob'u görmez.
+		pNpc = new CNpc();
+		if (pNpc == nullptr)
+			return;
+		pNpc->Initialize();
+		pNpc->m_sNid = instanceId;
+		if (!_main->m_NpcMap.PutData(instanceId, pNpc))
+		{
+			delete pNpc;
+			return;
+		}
+		spdlog::warn("AISocket::RecvNpcInfo: runtime NPC eklendi [serial={} npcId={}]", instanceId,
+			npcId);
+	}
 
 	pNpc->m_NpcState = NPC_DEAD;
 

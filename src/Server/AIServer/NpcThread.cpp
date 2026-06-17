@@ -112,6 +112,16 @@ void CNpcThread::thread_loop()
 
 				case NPC_DEAD:
 					//pNpc->NpcTrace(_T("NpcDead"));
+					if (pNpc->m_bSummoned)
+					{
+						// +monsummon tek-seferlik: respawn ETME, NPC'yi tamamen kaldır.
+						// Önce thread slot'unu temizle (thread bir daha dokunmasın), sonra
+						// _npcMap'ten sil — DeleteData objeyi de delete eder, pNpc artık geçersiz.
+						int nidGone        = pNpc->m_sNid;
+						m_pNpc[i]          = nullptr;
+						AIServerApp::instance()->_npcMap.DeleteData(nidGone);
+						continue; // pNpc geçersiz → bu iterasyonun kalanını atla
+					}
 					pNpc->m_NpcState = NPC_LIVE;
 					break;
 

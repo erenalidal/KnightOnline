@@ -67,7 +67,7 @@ public:
 	// +monsummon: belirtilen tipte bir mob'u (sid) verilen zone/konumda canlı olarak spawn eder.
 	// Boş thread slot'u bulur (yoksa yeni thread), _npcMap'e ekler; NPC thread'i SetLive ile
 	// canlandırıp AG_NPC_INFO'yu client'lara yayar. Test/GM aracı.
-	bool SpawnMonster(int16_t sid, int16_t zone, float x, float y, float z);
+	bool SpawnMonster(int16_t sid, int16_t zone, float x, float y, float z, bool bOneTime);
 	void AllNpcInfo();
 	CUser* GetUserPtr(int nid);
 	int GetZoneIndex(int zoneId) const;
@@ -115,6 +115,7 @@ public:
 	// 전역 객체 변수
 	long _totalNpcCount                = 0; // DB에있는 총 수
 	std::atomic<long> _loadedNpcCount  = 0; // 현재 게임상에서 실제로 셋팅된 수
+	int _summonNidNext                 = -1; // +monsummon için sıradaki boş nid (lazy = _totalNpcCount)
 	int16_t _mapCount                  = 0; // Zone 수
 	int16_t _mapEventNpcCount          = 0; // Map에서 읽어들이는 event npc 수
 

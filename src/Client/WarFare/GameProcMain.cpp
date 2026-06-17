@@ -294,6 +294,7 @@ void CGameProcMain::Init()
 	g_szCmdMsg[i++] = "godmode";   // CMD_GODMODE
 	g_szCmdMsg[i++] = "autoloot";  // CMD_AUTOLOOT
 	g_szCmdMsg[i++] = "monsummon"; // CMD_MONSUMMON
+	g_szCmdMsg[i++] = "monspawn";  // CMD_MONSPAWN
 
 	s_SndMgr.ReleaseStreamObj(&s_pSnd_BGM);
 
