@@ -431,6 +431,11 @@ bool OperationMessage::Process(const std::string_view command)
 				AutoLoot();
 				break;
 
+			// +repair — tüm itemların durability'sini max yap (eskimiş silah hasarı yarılıyordu)
+			case "+repair"_djb2:
+				Repair();
+				break;
+
 			// Unhandled command.
 			default:
 				return false;
@@ -1062,6 +1067,17 @@ void OperationMessage::AutoLoot()
 	spdlog::warn("OperationMessage::AutoLoot: charId={} autoloot={} minVal={} unique={}",
 		_srcUser->m_pUserData->m_id, _srcUser->m_bAutoLoot, _srcUser->m_nAutoLootMinValue,
 		_srcUser->m_bAutoLootUniqueOnly);
+}
+
+// +repair — tüm itemların durability'sini max yapar (eskimiş silah hasarı yarılıyordu) + atağı yeniler.
+void OperationMessage::Repair()
+{
+	if (_srcUser == nullptr)
+		return;
+
+	int n = _srcUser->RepairAllItems();
+	_srcUser->SendSysMsg(fmt::format("[GM] {} item onarildi (durability max). Atak yeniden hesaplandi.", n));
+	spdlog::warn("OperationMessage::Repair: charId={} repaired={}", _srcUser->m_pUserData->m_id, n);
 }
 
 void OperationMessage::EventRateCmd(uint8_t byType, const char* label)

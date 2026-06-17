@@ -1433,6 +1433,64 @@ void CUser::SendSysMsg(const std::string& msg)
 	Send(sendBuffer, sendIndex);
 }
 
+// +repair: tüm item'ların durability'sini max yapar, stat'ları yeniden hesaplar ve client'a
+// bildirir (eskimiş silahlar hasarı yarıya düşürüyordu). Onarılan item sayısını döner.
+int CUser::RepairAllItems()
+{
+	int repaired = 0;
+	for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
+	{
+		_ITEM_DATA& item = m_pUserData->m_sItemArray[i];
+		if (item.nNum == 0)
+			continue;
+
+		model::Item* pT = m_pMain->m_ItemTableMap.GetData(item.nNum);
+		if (pT == nullptr || pT->Durability <= 0)
+			continue;
+
+		if (item.sDuration < pT->Durability)
+		{
+			item.sDuration = pT->Durability;
+
+			int  di = 0;
+			char db[16] {};
+			SetByte(db, WIZ_DURATION, di);
+			SetByte(db, i, di);
+			SetShort(db, item.sDuration, di);
+			Send(db, di);
+			repaired++;
+		}
+	}
+
+	SetSlotItemValue();
+	SetUserAbility();
+
+	// Yeni stat toplamlarını client'a gönder (ItemRepair'deki WIZ_ITEM_MOVE bloğu ile aynı).
+	int  sendIndex = 0;
+	char sendBuffer[128] {};
+	SetByte(sendBuffer, WIZ_ITEM_MOVE, sendIndex);
+	SetByte(sendBuffer, 0x01, sendIndex);
+	SetShort(sendBuffer, m_sTotalHit, sendIndex);
+	SetShort(sendBuffer, m_sTotalAc, sendIndex);
+	SetShort(sendBuffer, GetCurrentWeightForClient(), sendIndex);
+	SetShort(sendBuffer, m_iMaxHp, sendIndex);
+	SetShort(sendBuffer, m_iMaxMp, sendIndex);
+	SetShort(sendBuffer, m_sItemStr + m_sStrAmount, sendIndex);
+	SetShort(sendBuffer, m_sItemSta + m_sStaAmount, sendIndex);
+	SetShort(sendBuffer, m_sItemDex + m_sDexAmount, sendIndex);
+	SetShort(sendBuffer, m_sItemIntel + m_sIntelAmount, sendIndex);
+	SetShort(sendBuffer, m_sItemCham + m_sChaAmount, sendIndex);
+	SetShort(sendBuffer, m_bFireR, sendIndex);
+	SetShort(sendBuffer, m_bColdR, sendIndex);
+	SetShort(sendBuffer, m_bLightningR, sendIndex);
+	SetShort(sendBuffer, m_bMagicR, sendIndex);
+	SetShort(sendBuffer, m_bDiseaseR, sendIndex);
+	SetShort(sendBuffer, m_bPoisonR, sendIndex);
+	Send(sendBuffer, sendIndex);
+
+	return repaired;
+}
+
 void CUser::UserDataSaveToAgent()
 {
 	int sendIndex = 0, retvalue = 0;

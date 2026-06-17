@@ -512,6 +512,7 @@ public:
 	void UserDataSaveToAgent();
 	void SendGmToggleToAI(bool bGod); // GM godmode (hasar+aggro) toggle → AIServer
 	void SendSysMsg(const std::string& msg); // bu oyuncuya sarı sistem mesajı (GM komut bildirimi)
+	int RepairAllItems();                    // +repair: tüm itemları onar, stat'ları yenile
 	void CountConcurrentUser();
 	void SendUserInfo(char* temp_send, int& index);
 	void ChatTargetSelect(char* pBuf);
