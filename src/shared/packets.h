@@ -133,6 +133,14 @@ enum e_GameOpcode : uint8_t
 	WIZ_BIFROST             = 0x7B,
 	WIZ_SERVER_KILL         = 0x7F,
 
+	// Server→client sistem/info mesajı: client MsgOutput ile Information penceresine yazar
+	// (GM komut geri bildirimi: godmode/autoloot durumu). [WIZ_INFO_MSG][SetString2 text]
+	WIZ_INFO_MSG            = 0x80,
+
+	// Server→client: auto-loot bir mob'un TÜM loot'unu aldı → o cesedi elle-loot gibi yavaş
+	// yavaş fade et (CorpseRemove). [WIZ_AUTOLOOT_CORPSE][Short npcId]
+	WIZ_AUTOLOOT_CORPSE     = 0x81,
+
 	// NOTE(srmeier): testing this debug string functionality
 	WIZ_DEBUG_STRING_PACKET = 0xFE,
 

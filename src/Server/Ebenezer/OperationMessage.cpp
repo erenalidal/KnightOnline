@@ -994,14 +994,21 @@ void OperationMessage::GodMode()
 	if (_srcUser == nullptr) // yalnızca oyun-içi (telnet'te hedef kullanıcı yok)
 		return;
 
-	bool bGod = true;
+	bool bGod;
 	if (GetArgCount() >= 1)
 	{
 		const std::string& a = ParseString(0);
 		bGod                 = !(a == "off" || a == "0" || a == "kapat");
 	}
+	else
+	{
+		bGod = !_srcUser->m_bGodMode; // arg yoksa toggle (command penceresi tek komutla aç/kapa)
+	}
 
+	_srcUser->m_bGodMode = bGod;
 	_srcUser->SendGmToggleToAI(bGod);
+	_srcUser->SendSysMsg(bGod ? "[GM] Godmode: ON  (30000 hasar + no-aggro)"
+							  : "[GM] Godmode: OFF  (normal hasar/aggro)");
 	spdlog::warn("OperationMessage::GodMode: charId={} godmode={}", _srcUser->m_pUserData->m_id,
 		bGod ? "ON" : "OFF");
 }
@@ -1013,17 +1020,48 @@ void OperationMessage::AutoLoot()
 	if (_srcUser == nullptr)
 		return;
 
+	// +autoloot            → aç/kapa toggle
+	// +autoloot off|0|kapat → kapat
+	// +autoloot <sayı>     → aç + min Noah (SellPrice) eşiği (çöp filtresi)
+	// +autoloot unique     → aç + unique (değerden bağımsız) topla toggle
+	// (Popup #13 gelene kadar test/komut yolu.)
 	if (GetArgCount() >= 1)
 	{
-		const std::string& a  = ParseString(0);
-		_srcUser->m_bAutoLoot = !(a == "off" || a == "0" || a == "kapat");
+		const std::string& a = ParseString(0);
+		if (a == "off" || a == "0" || a == "kapat")
+		{
+			_srcUser->m_bAutoLoot = false;
+		}
+		else if (a == "unique")
+		{
+			_srcUser->m_bAutoLootUniqueOnly = !_srcUser->m_bAutoLootUniqueOnly;
+			_srcUser->m_bAutoLoot           = true;
+		}
+		else
+		{
+			int v                          = atoi(a.c_str());
+			_srcUser->m_nAutoLootMinValue  = (v > 0) ? v : 0;
+			_srcUser->m_bAutoLoot          = true;
+		}
 	}
 	else
 	{
 		_srcUser->m_bAutoLoot = !_srcUser->m_bAutoLoot; // toggle
 	}
-	spdlog::warn("OperationMessage::AutoLoot: charId={} autoloot={}", _srcUser->m_pUserData->m_id,
-		_srcUser->m_bAutoLoot ? "ON" : "OFF");
+
+	if (_srcUser->m_bAutoLoot)
+	{
+		_srcUser->SendSysMsg(fmt::format("[GM] Autoloot: ON  (min {} Noah{})",
+			_srcUser->m_nAutoLootMinValue,
+			_srcUser->m_bAutoLootUniqueOnly ? ", +unique" : ""));
+	}
+	else
+	{
+		_srcUser->SendSysMsg("[GM] Autoloot: OFF");
+	}
+	spdlog::warn("OperationMessage::AutoLoot: charId={} autoloot={} minVal={} unique={}",
+		_srcUser->m_pUserData->m_id, _srcUser->m_bAutoLoot, _srcUser->m_nAutoLootMinValue,
+		_srcUser->m_bAutoLootUniqueOnly);
 }
 
 void OperationMessage::EventRateCmd(uint8_t byType, const char* label)

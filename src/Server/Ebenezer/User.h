@@ -208,6 +208,9 @@ public:
 	int16_t m_sDirection                     = 0;
 	bool m_bIsChicken                        = false;
 	bool m_bAutoLoot                         = false; // +autoloot: mob loot'u direkt envantere
+	bool m_bGodMode                          = false; // +godmode: GM hasar+aggro toggle durumu
+	int32_t m_nAutoLootMinValue              = 0;     // autoloot filtre: item SellPrice >= bu (0=hepsi). Çöp filtresi.
+	bool m_bAutoLootUniqueOnly               = false; // autoloot filtre: sadece unique/yüksek-grade itemlar (değerden bağımsız)
 	uint8_t m_byKnightsRank                  = 0;
 	uint8_t m_byPersonalRank                 = 0;
 
@@ -508,6 +511,7 @@ public:
 	void LoyaltyDivide(int tid);
 	void UserDataSaveToAgent();
 	void SendGmToggleToAI(bool bGod); // GM godmode (hasar+aggro) toggle → AIServer
+	void SendSysMsg(const std::string& msg); // bu oyuncuya sarı sistem mesajı (GM komut bildirimi)
 	void CountConcurrentUser();
 	void SendUserInfo(char* temp_send, int& index);
 	void ChatTargetSelect(char* pBuf);

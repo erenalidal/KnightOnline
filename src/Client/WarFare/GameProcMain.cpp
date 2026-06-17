@@ -822,6 +822,28 @@ bool CGameProcMain::ProcessPacket(Packet& pkt)
 		}
 			return true;
 
+		case WIZ_INFO_MSG:
+		{
+			// Server→client sistem/info mesajı → Information penceresine (sarı), "Item received" gibi.
+			int iLen = pkt.read<int16_t>();
+			std::string szInfo;
+			pkt.readString(szInfo, iLen);
+			MsgOutput(szInfo, 0xFFFFFF00);
+		}
+			return true;
+
+		case WIZ_AUTOLOOT_CORPSE:
+		{
+			// Auto-loot bu mob'un tüm loot'unu aldı → cesedi elle-loot gibi yavaş yavaş fade et.
+			int iNpcID           = pkt.read<int16_t>();
+			CPlayerBase* pCorpse = s_pOPMgr->CorpseGetByID(iNpcID);
+			if (pCorpse == nullptr)
+				pCorpse = s_pOPMgr->NPCGetByID(iNpcID, false);
+			if (pCorpse != nullptr)
+				s_pOPMgr->CorpseRemove((CPlayerNPC*) pCorpse, false); // kademeli fade (CorpseRemove)
+		}
+			return true;
+
 		case WIZ_EVENT:
 		case WIZ_MERCHANT_INOUT:
 		{

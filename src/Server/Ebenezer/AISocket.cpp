@@ -1233,36 +1233,60 @@ void CAISocket::RecvNpcGiveItem(char* pBuf)
 	// AUTO-LOOT (+autoloot): loot'u yere düşürmek yerine direkt envantere/altına ver. Para
 	// (TYPE_MONEY_SID) → GoldChange; item → GiveItem. Sığan bundle'dan çıkar; sığmayan (envanter
 	// dolu) kalır ve normal yoldan yere düşer → item kaybı OLMAZ.
-	constexpr int AUTOLOOT_MONEY_SID = 900000000; // AIServer TYPE_MONEY_SID
+	constexpr int AUTOLOOT_MONEY_SID    = 900000000; // AIServer TYPE_MONEY_SID
+	constexpr int AUTOLOOT_UNIQUE_VALUE = 500000;    // "unique" kabul edilen min SellPrice (m_bAutoLootUniqueOnly için)
 	if (pUser->m_bAutoLoot)
 	{
 		int remaining = 0, givenItems = 0, gotGold = 0;
 		for (int i = 0; i < byCount; i++)
 		{
-			if (nItemNumber[i] == AUTOLOOT_MONEY_SID) // para
+			if (nItemNumber[i] == AUTOLOOT_MONEY_SID) // para (ITEM_GOLD)
 			{
-				pUser->GoldChange(sUid, sCount[i]);
+				// GoldChange PvP altın-transferi içindi (zone<3 return + pTUser gerektirir) → para
+				// hiç eklenmiyordu. GoldGain doğru fonksiyon: altını ekler + WIZ_GOLD_CHANGE gönderir.
+				pUser->GoldGain(sCount[i]);
 				gotGold += sCount[i];
 				pItem->itemid[i] = 0;
 			}
 			else if (pItem->itemid[i] > 0) // geçerli item
 			{
-				if (pUser->GiveItem(pItem->itemid[i], pItem->count[i]))
+				// FİLTRE (#13): item SellPrice >= m_nAutoLootMinValue ise topla (çöpleri eler).
+				// m_bAutoLootUniqueOnly açıksa değerden bağımsız uniqueları da topla.
+				// Filtreden geçmeyen VEYA envantere sığmayan item bundle'da KALIR → cesette elle
+				// lootlanabilir (#15). pItem->itemid[i] sıfırlanmazsa aşağıda WIZ_ITEM_DROP'a girer.
+				model::Item* pT  = _main->m_ItemTableMap.GetData(pItem->itemid[i]);
+				bool         bUnique = (pT != nullptr && pUser->m_bAutoLootUniqueOnly
+										&& pT->SellPrice >= AUTOLOOT_UNIQUE_VALUE);
+				bool         bPass   = (pT != nullptr)
+									 && (pT->SellPrice >= pUser->m_nAutoLootMinValue || bUnique);
+
+				if (bPass && pUser->GiveItem(pItem->itemid[i], pItem->count[i]))
 				{
+					// GiveItem WIZ_ITEM_COUNT_CHANGE gönderir → client zaten "Item received: X"
+					// mesajını Information'a yazar (normal loot ile aynı). Ekstra mesaj GEREKMEZ.
 					pItem->itemid[i] = 0; // alındı → bundle'dan çıkar
 					givenItems++;
 				}
 				else
-					remaining++; // sığmadı → bundle'da kalsın, yere düşsün
+					remaining++; // filtrelendi veya sığmadı → cesette kalsın (elle loot)
 			}
 		}
+		// Altın: GoldGain WIZ_GOLD_CHANGE gönderir → client "X noah aldın"ı Information'a yazar.
 		spdlog::warn("RecvNpcGiveItem auto-loot: uid={} byCount={} verilenItem={} altin={} kalan={} "
 					 "item0={} item1={}",
 			sUid, (int) byCount, givenItems, gotGold, remaining, nItemNumber[0],
 			byCount > 1 ? nItemNumber[1] : 0);
 		if (remaining == 0)
 		{
-			delete pItem; // her şey alındı, yere düşürme
+			// Her şey auto-loot ile alındı: client'a "bu cesedi fade et" sinyali gönder
+			// (#12) → ceset elle-loot gibi yavaş yavaş kalkar (90s beklemez).
+			char fadeBuf[8] {};
+			int  fadeIdx = 0;
+			SetByte(fadeBuf, WIZ_AUTOLOOT_CORPSE, fadeIdx);
+			SetShort(fadeBuf, sNid, fadeIdx);
+			pUser->Send(fadeBuf, fadeIdx);
+
+			delete pItem; // yere düşürme yok
 			return;
 		}
 		// kalan (sığmayan) item'lar için aşağıdaki normal düşürme akışı sürer

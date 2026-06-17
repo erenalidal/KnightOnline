@@ -1404,6 +1404,17 @@ void CUser::SendGmToggleToAI(bool bGod)
 	m_pMain->Send_AIServer(m_pUserData->m_bZone, sendBuffer, sendIndex);
 }
 
+// Bu oyuncuya info mesajı gönderir → client MsgOutput ile Information penceresine yazar
+// ("Item received" loot mesajlarıyla aynı yer). GM komut geri bildirimi için (godmode/autoloot).
+void CUser::SendSysMsg(const std::string& msg)
+{
+	int  sendIndex = 0;
+	char sendBuffer[256] {};
+	SetByte(sendBuffer, WIZ_INFO_MSG, sendIndex);
+	SetString2(sendBuffer, msg, sendIndex);
+	Send(sendBuffer, sendIndex);
+}
+
 void CUser::UserDataSaveToAgent()
 {
 	int sendIndex = 0, retvalue = 0;
