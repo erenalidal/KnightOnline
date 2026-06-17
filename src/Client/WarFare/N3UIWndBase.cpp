@@ -22,6 +22,7 @@ __SkillSelectInfo CN3UIWndBase::s_sSkillSelectInfo;
 
 CN3UIImage* CN3UIWndBase::s_pSelectionImage               = nullptr;
 CCountableItemEditDlg* CN3UIWndBase::s_pCountableItemEdit = nullptr;
+CUIAutoLootDlg* CN3UIWndBase::s_pAutoLootDlg              = nullptr;
 
 CN3SndObj* CN3UIWndBase::s_pSnd_Item_Etc                  = nullptr;
 CN3SndObj* CN3UIWndBase::s_pSnd_Item_Weapon               = nullptr;

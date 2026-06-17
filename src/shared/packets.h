@@ -141,6 +141,10 @@ enum e_GameOpcode : uint8_t
 	// yavaş fade et (CorpseRemove). [WIZ_AUTOLOOT_CORPSE][Short npcId]
 	WIZ_AUTOLOOT_CORPSE     = 0x81,
 
+	// Client→server: auto-loot filtre ayarları (popup OK). [WIZ_AUTOLOOT_SETTINGS]
+	// [byte enable][DWORD minValue][byte uniqueOnly]
+	WIZ_AUTOLOOT_SETTINGS   = 0x82,
+
 	// NOTE(srmeier): testing this debug string functionality
 	WIZ_DEBUG_STRING_PACKET = 0xFE,
 

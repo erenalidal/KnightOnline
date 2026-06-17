@@ -661,6 +661,24 @@ void CUser::Parsing(int len, char* pData)
 			UserDataSaveToAgent();
 			break;
 
+		case WIZ_AUTOLOOT_SETTINGS:
+		{
+			// Auto-loot filtre popup (OK): [byte enable][DWORD minValue][byte uniqueOnly]
+			int      idx        = index;
+			uint8_t  bEnable    = GetByte(pData, idx);
+			int32_t  nMinValue  = static_cast<int32_t>(GetDWORD(pData, idx));
+			uint8_t  bUnique    = GetByte(pData, idx);
+			m_bAutoLoot           = (bEnable != 0);
+			m_nAutoLootMinValue   = (nMinValue > 0) ? nMinValue : 0;
+			m_bAutoLootUniqueOnly = (bUnique != 0);
+			if (m_bAutoLoot)
+				SendSysMsg(fmt::format("[Autoloot] ON  (min {} Noah{})", m_nAutoLootMinValue,
+					m_bAutoLootUniqueOnly ? ", +unique" : ""));
+			else
+				SendSysMsg("[Autoloot] OFF");
+		}
+		break;
+
 		case WIZ_ITEM_REPAIR:
 			ItemRepair(pData + index);
 			break;

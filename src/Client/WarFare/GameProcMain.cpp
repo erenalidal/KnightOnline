@@ -58,6 +58,7 @@
 
 #include "SubProcPerTrade.h"
 #include "CountableItemEditDlg.h"
+#include "UIAutoLootDlg.h"
 #include "MagicSkillMng.h"
 #include "WarMessage.h"
 #include "GameCursor.h"
@@ -1617,6 +1618,14 @@ void CGameProcMain::MsgSend_ChatSelectTarget(const std::string& szTargetID)
 	CAPISocket::MP_AddString(byBuff, iOffset, szTargetID);
 
 	s_pSocket->Send(byBuff, iOffset);
+}
+
+void CGameProcMain::OpenAutoLootDlg()
+{
+	if (CN3UIWndBase::s_pAutoLootDlg == nullptr)
+		return;
+
+	CN3UIWndBase::s_pAutoLootDlg->Open();
 }
 
 void CGameProcMain::MsgSend_Regen()
@@ -4119,6 +4128,34 @@ void CGameProcMain::InitUI()
 	CN3UIWndBase::s_pCountableItemEdit->SetVisibleWithNoSound(false);
 	CN3UIWndBase::s_pCountableItemEdit->SetUIType(UI_TYPE_BASE);
 	CN3UIWndBase::s_pCountableItemEdit->SetState(UI_STATE_COMMON_NONE);
+
+	// Auto-loot filtre popup. .uif yolu, personaltradeedit yolundan türetilir
+	// (yeni .tbl kolonu eklemekten kaçınmak için): "personaltradeedit" -> "autolootset".
+	{
+		std::string szAutoLootUif = pTbl->szPersonalTradeEdit;
+		auto        lc            = [](std::string s)
+		{
+			for (char& c : s)
+				c = (char) tolower((unsigned char) c);
+			return s;
+		};
+		std::string szLower = lc(szAutoLootUif);
+		std::size_t iPos    = szLower.find("personaltradeedit");
+		if (iPos != std::string::npos)
+			szAutoLootUif.replace(iPos, std::string("personaltradeedit").size(), "autolootset");
+
+		CN3UIWndBase::s_pAutoLootDlg = new CUIAutoLootDlg;
+		CN3UIWndBase::s_pAutoLootDlg->Init(s_pUIMgr);
+		CN3UIWndBase::s_pAutoLootDlg->LoadFromFile(szAutoLootUif);
+		CN3UIWndBase::s_pAutoLootDlg->SetStyle(UISTYLE_ALWAYSTOP);
+		rc = CN3UIWndBase::s_pAutoLootDlg->GetRegion();
+		iX = (iW - (rc.right - rc.left)) / 2;
+		iY = (iH - (rc.bottom - rc.top)) / 2;
+		CN3UIWndBase::s_pAutoLootDlg->SetPos(iX, iY);
+		CN3UIWndBase::s_pAutoLootDlg->SetVisibleWithNoSound(false);
+		CN3UIWndBase::s_pAutoLootDlg->SetUIType(UI_TYPE_BASE);
+		CN3UIWndBase::s_pAutoLootDlg->SetState(UI_STATE_COMMON_NONE);
+	}
 
 	m_pUISkillTreeDlg->Init(s_pUIMgr);
 	m_pUISkillTreeDlg->LoadFromFile(pTbl->szSkillTree);

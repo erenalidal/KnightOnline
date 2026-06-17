@@ -112,6 +112,7 @@ constexpr int UIITEM_COUNT_FEW            = 500;
 
 class CUIImageTooltipDlg;
 class CCountableItemEditDlg;
+class CUIAutoLootDlg;
 
 // Class ^^
 class CN3UIWndBase : public CN3UIBase // 가상 함수로 자식의 Area 갯수를 파악할 수 있는 함수가 있어야 하지 않을 까???
@@ -127,6 +128,7 @@ public:
 	static __SkillSelectInfo s_sSkillSelectInfo;
 	static CN3UIImage* s_pSelectionImage;
 	static CCountableItemEditDlg* s_pCountableItemEdit;
+	static CUIAutoLootDlg* s_pAutoLootDlg;
 
 protected:
 	e_UIWND m_eUIWnd;

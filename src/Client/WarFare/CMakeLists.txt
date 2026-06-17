@@ -245,6 +245,8 @@ set(WARFARE_WORLD_WATER_SOURCES
 set(WARFARE_CORE_UIS_SOURCES
   CountableItemEditDlg.cpp
   CountableItemEditDlg.h
+  UIAutoLootDlg.cpp
+  UIAutoLootDlg.h
   GameCursor.cpp
   GameCursor.h
   IconItemSkill.cpp

@@ -455,6 +455,14 @@ bool CUICmdList::ExecuteCommand(int iCmdIndex)
 	// yalnızca '/' client komutlarını işler (sscanf "/%s") → '+' ile çalışmaz. Bkz. MsgSend_Chat.
 	if (m_iSelectedCategory == CMD_LIST_CAT_GM)
 	{
+		// "autoloot" özel-case: '+autoloot' chat göndermek yerine filtre popup'unu aç.
+		// Popup OK'a basınca WIZ_AUTOLOOT_SETTINGS paketini gönderir (min Noah + unique).
+		if (command == "autoloot")
+		{
+			CGameProcedure::s_pProcMain->OpenAutoLootDlg();
+			return true;
+		}
+
 		CGameProcedure::s_pProcMain->MsgSend_Chat(N3_CHAT_NORMAL, '+' + command);
 		return true;
 	}

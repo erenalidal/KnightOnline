@@ -286,6 +286,7 @@ public:
 	void MsgSend_Rotation();                              // 서버에게 회전 패킷을 날린다..
 	void MsgSend_Chat(e_ChatMode eMode, const std::string& szChat);                // 서버에게 채팅 메시지를 날린다..
 	void MsgSend_ChatSelectTarget(const std::string& szTargetID);                  // 일대일 채팅 상대 정하기.
+	void OpenAutoLootDlg();                                                         // auto-loot filtre popup'unu açar.
 	void MsgSend_Regen();
 	bool MsgSend_RequestItemBundleOpen(CPlayerNPC* pCorpse);                       // 아이템 상자를 열거나 시체를 뒤진다..
 	void MsgSend_RequestTargetHP(int16_t siIDTarget, uint8_t byUpdateImmediately); // 0x00 - 점차 늘어나게끔.. 0x01 - 즉시 업데이트..
