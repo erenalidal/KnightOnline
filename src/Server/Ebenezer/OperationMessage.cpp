@@ -426,6 +426,11 @@ bool OperationMessage::Process(const std::string_view command)
 				GodMode();
 				break;
 
+			// +autoloot [on/off] — mob loot'u direkt envantere (arg yoksa toggle)
+			case "+autoloot"_djb2:
+				AutoLoot();
+				break;
+
 			// Unhandled command.
 			default:
 				return false;
@@ -999,6 +1004,26 @@ void OperationMessage::GodMode()
 	_srcUser->SendGmToggleToAI(bGod);
 	spdlog::warn("OperationMessage::GodMode: charId={} godmode={}", _srcUser->m_pUserData->m_id,
 		bGod ? "ON" : "OFF");
+}
+
+// +autoloot [on/off] — mob loot'u yere düşürmek yerine direkt envantere. Arg yoksa toggle
+// (command penceresi tek komutla aç/kapa için). Oyun-içi gerekir.
+void OperationMessage::AutoLoot()
+{
+	if (_srcUser == nullptr)
+		return;
+
+	if (GetArgCount() >= 1)
+	{
+		const std::string& a  = ParseString(0);
+		_srcUser->m_bAutoLoot = !(a == "off" || a == "0" || a == "kapat");
+	}
+	else
+	{
+		_srcUser->m_bAutoLoot = !_srcUser->m_bAutoLoot; // toggle
+	}
+	spdlog::warn("OperationMessage::AutoLoot: charId={} autoloot={}", _srcUser->m_pUserData->m_id,
+		_srcUser->m_bAutoLoot ? "ON" : "OFF");
 }
 
 void OperationMessage::EventRateCmd(uint8_t byType, const char* label)

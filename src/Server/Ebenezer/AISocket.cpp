@@ -1230,6 +1230,44 @@ void CAISocket::RecvNpcGiveItem(char* pBuf)
 		}
 	}
 
+	// AUTO-LOOT (+autoloot): loot'u yere düşürmek yerine direkt envantere/altına ver. Para
+	// (TYPE_MONEY_SID) → GoldChange; item → GiveItem. Sığan bundle'dan çıkar; sığmayan (envanter
+	// dolu) kalır ve normal yoldan yere düşer → item kaybı OLMAZ.
+	constexpr int AUTOLOOT_MONEY_SID = 900000000; // AIServer TYPE_MONEY_SID
+	if (pUser->m_bAutoLoot)
+	{
+		int remaining = 0, givenItems = 0, gotGold = 0;
+		for (int i = 0; i < byCount; i++)
+		{
+			if (nItemNumber[i] == AUTOLOOT_MONEY_SID) // para
+			{
+				pUser->GoldChange(sUid, sCount[i]);
+				gotGold += sCount[i];
+				pItem->itemid[i] = 0;
+			}
+			else if (pItem->itemid[i] > 0) // geçerli item
+			{
+				if (pUser->GiveItem(pItem->itemid[i], pItem->count[i]))
+				{
+					pItem->itemid[i] = 0; // alındı → bundle'dan çıkar
+					givenItems++;
+				}
+				else
+					remaining++; // sığmadı → bundle'da kalsın, yere düşsün
+			}
+		}
+		spdlog::warn("RecvNpcGiveItem auto-loot: uid={} byCount={} verilenItem={} altin={} kalan={} "
+					 "item0={} item1={}",
+			sUid, (int) byCount, givenItems, gotGold, remaining, nItemNumber[0],
+			byCount > 1 ? nItemNumber[1] : 0);
+		if (remaining == 0)
+		{
+			delete pItem; // her şey alındı, yere düşürme
+			return;
+		}
+		// kalan (sığmayan) item'lar için aşağıdaki normal düşürme akışı sürer
+	}
+
 	if (!pMap->RegionItemAdd(regionx, regionz, pItem))
 	{
 		delete pItem;
