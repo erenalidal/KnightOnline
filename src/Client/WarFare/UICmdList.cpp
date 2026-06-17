@@ -317,7 +317,11 @@ bool CUICmdList::CreateCategoryList()
 	{
 		// category names start with 7800
 		int iCategoryResourceID = IDS_PRIVATE_CMD_CAT + i;
-		szCategory              = fmt::format_text_resource(iCategoryResourceID);
+		// GM2 macOS-port'a özel; resource yok → ismi kodda.
+		if (i == CMD_LIST_CAT_GM2)
+			szCategory = "GM2";
+		else
+			szCategory = fmt::format_text_resource(iCategoryResourceID);
 		m_pList_CmdCat->AddString(szCategory);
 
 		// category tips start with 7900
@@ -364,15 +368,14 @@ bool CUICmdList::CreateCategoryList()
 	// Unofficial. This isn't displayed officially.
 	if (CGameBase::s_pPlayer->m_InfoBase.iAuthority == AUTHORITY_MANAGER)
 	{
-		// macOS port GM toggle'ları (godmode/autoloot) — listenin EN ÜSTÜNDE (önce eklenir;
-		// multimap aynı key'de ekleme sırasını korur) ki uzun GM listesinde görünür/erişilebilir
-		// olsunlar. İsimleri g_szCmdMsg'de kodda set; seçilince '+godmode'/'+autoloot' (GM prefix '+').
-		for (e_ChatCmd cmd : { CMD_GODMODE, CMD_AUTOLOOT, CMD_MONSUMMON, CMD_MONSPAWN })
+		// macOS port komutları ARTIK ayrı "GM2" kategorisinde (orijinal GM listesi taşıyordu).
+		// İsimleri g_szCmdMsg'de kodda set; seçilince '+godmode'/'+autoloot'/... (GM prefix '+').
+		for (e_ChatCmd cmd : { CMD_GODMODE, CMD_AUTOLOOT, CMD_MONSUMMON, CMD_MONSPAWN, CMD_REPAIR })
 		{
 			CommandInfo info;
 			info.ResourceID = IDS_CMD_VISIBLE; // tooltip için geçerli bir res (içerik önemsiz)
 			info.Command    = cmd;
-			m_categoryToCommandInfoMap.insert(std::make_pair(CMD_LIST_CAT_GM, info));
+			m_categoryToCommandInfoMap.insert(std::make_pair(CMD_LIST_CAT_GM2, info));
 		}
 
 		AppendToCommandMap(CMD_LIST_CAT_GM, CMD_VISIBLE, IDS_CMD_VISIBLE, IDS_CMD_PLC);
@@ -453,7 +456,9 @@ bool CUICmdList::ExecuteCommand(int iCmdIndex)
 	// GM '+' komutları (godmode/autoloot) server'a CHAT olarak gönderilir; server Chat handler'ı
 	// '+' prefix + GM authority'yi OperationMessage'a yönlendirir (User.cpp). ParseChattingCommand
 	// yalnızca '/' client komutlarını işler (sscanf "/%s") → '+' ile çalışmaz. Bkz. MsgSend_Chat.
-	if (m_iSelectedCategory == CMD_LIST_CAT_GM)
+	// Orijinal GM komutları (VISIBLE...) GM'de; macOS-port komutları (godmode/autoloot/monsummon/
+	// monspawn/repair) GM2'de — ikisi de '+' prefix ile gönderilir.
+	if (m_iSelectedCategory == CMD_LIST_CAT_GM || m_iSelectedCategory == CMD_LIST_CAT_GM2)
 	{
 		// "autoloot" özel-case: '+autoloot' chat göndermek yerine filtre popup'unu aç.
 		// Popup OK'a basınca WIZ_AUTOLOOT_SETTINGS paketini gönderir (min Noah + unique).

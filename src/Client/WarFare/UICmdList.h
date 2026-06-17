@@ -109,6 +109,7 @@ enum e_ChatCmd : uint8_t
 	CMD_AUTOLOOT,  // +autoloot (loot direkt envantere toggle)
 	CMD_MONSUMMON, // +monsummon (tek-seferlik mob — ölünce respawn yok)
 	CMD_MONSPAWN,  // +monspawn (respawn'lı mob — spawn point gibi)
+	CMD_REPAIR,    // +repair (tüm itemları onar)
 
 	CMD_COUNT,
 	CMD_UNKNOWN
@@ -134,6 +135,7 @@ protected:
 		CMD_LIST_CAT_GUARDIAN,
 		CMD_LIST_CAT_KING,
 		CMD_LIST_CAT_GM,
+		CMD_LIST_CAT_GM2, // macOS port komutları (godmode/autoloot/monsummon/monspawn/repair) — GM taşıyor
 		CMD_LIST_CAT_COUNT
 	};
 
