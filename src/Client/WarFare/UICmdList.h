@@ -103,6 +103,11 @@ enum e_ChatCmd : uint8_t
 	CMD_CLEAR,
 	CMD_REWARD,
 
+	// GM toggle komutları (macOS port). İsimleri kodda (g_szCmdMsg) set edilir, '+' prefix ile
+	// OperationMessage'a gider. Enum sırası GameProcMain g_szCmdMsg yükleme sırasıyla AYNI olmalı.
+	CMD_GODMODE,  // +godmode (30000 hasar + no-aggro toggle)
+	CMD_AUTOLOOT, // +autoloot (loot direkt envantere toggle)
+
 	CMD_COUNT,
 	CMD_UNKNOWN
 };

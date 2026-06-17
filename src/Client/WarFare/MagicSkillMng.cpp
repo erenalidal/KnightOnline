@@ -594,7 +594,10 @@ bool CMagicSkillMng::CheckValidCondition(int iTargetID, const __TABLE_UPC_SKILL*
 	{
 		__TABLE_UPC_SKILL_TYPE_3* pType3 = m_pTbl_Type_3->Find(pSkill->dwID);
 		if (pType3 == nullptr)
+		{
+			CLogWriter::Write("CheckValidCondition: Type3 SELF reject - pType3 NULL for dwID={}", pSkill->dwID);
 			return false;
+		}
 
 		int key = 0;
 		if (pType3->iStartDamage > 0 || (pType3->iStartDamage == 0 && pType3->iDuraDamage > 0))
@@ -614,49 +617,89 @@ bool CMagicSkillMng::CheckValidCondition(int iTargetID, const __TABLE_UPC_SKILL*
 	if ((pSkill->dw1stTableType == 4 || pSkill->dw2ndTableType == 4)
 		&& (pSkill->iTarget == SKILLMAGIC_TARGET_SELF || iTargetID == s_pPlayer->IDNumber()))
 	{
+		// Usable items (scrolls vb.) are skill-table entries with dwID >= UIITEM_TYPE_USABLE_ID_MIN.
+		// Bunlar bir item kullanımıdır; client tarafında "zaten aktif buff var" diye engellenmemeli —
+		// sunucu sarf/uygulama kararını verir. Aksi halde stat/enchant scroll'lar sessizce yutuluyordu.
+		const bool bUsableItem = (pSkill->dwID >= UIITEM_TYPE_USABLE_ID_MIN);
+
 		__TABLE_UPC_SKILL_TYPE_4* pType4 = m_pTbl_Type_4->Find(pSkill->dwID);
 		if (pType4 == nullptr)
-			return false;
-
-		switch (pType4->iBuffType)
 		{
-			case BUFFTYPE_MAXHP:
-				if (m_iMaxHP != 0)
-					return false;
-				break;
+			CLogWriter::Write(
+				"CheckValidCondition: Type4 SELF reject - pType4 NULL for dwID={} (1st={} 2nd={} target={} usable={})",
+				pSkill->dwID, pSkill->dw1stTableType, pSkill->dw2ndTableType, pSkill->iTarget, bUsableItem ? 1 : 0);
+			return false;
+		}
 
-			case BUFFTYPE_AC:
-				if (m_iAC != 0)
-					return false;
-				break;
+		if (!bUsableItem)
+		{
+			switch (pType4->iBuffType)
+			{
+				case BUFFTYPE_MAXHP:
+					if (m_iMaxHP != 0)
+					{
+						CLogWriter::Write("CheckValidCondition: Type4 SELF reject - MAXHP buff already active (dwID={})", pSkill->dwID);
+						return false;
+					}
+					break;
 
-			case BUFFTYPE_ATTACK:
-				if (m_iAttack != 0)
-					return false;
-				break;
+				case BUFFTYPE_AC:
+					if (m_iAC != 0)
+					{
+						CLogWriter::Write("CheckValidCondition: Type4 SELF reject - AC buff already active (dwID={})", pSkill->dwID);
+						return false;
+					}
+					break;
 
-			case BUFFTYPE_ATTACKSPEED:
-				if (m_fAttackSpeed != 1.0f)
-					return false;
-				break;
+				case BUFFTYPE_ATTACK:
+					if (m_iAttack != 0)
+					{
+						CLogWriter::Write("CheckValidCondition: Type4 SELF reject - ATTACK buff already active (dwID={})", pSkill->dwID);
+						return false;
+					}
+					break;
 
-			case BUFFTYPE_SPEED:
-				if (m_fSpeed != 1.0f)
-					return false;
-				break;
+				case BUFFTYPE_ATTACKSPEED:
+					if (m_fAttackSpeed != 1.0f)
+					{
+						CLogWriter::Write("CheckValidCondition: Type4 SELF reject - ATTACKSPEED buff already active (dwID={})", pSkill->dwID);
+						return false;
+					}
+					break;
 
-			case BUFFTYPE_ABILITY:
-				if (m_iStr != 0 || m_iSta != 0 || m_iDex != 0 || m_iInt != 0 || m_iMAP != 0)
-					return false;
-				break;
+				case BUFFTYPE_SPEED:
+					if (m_fSpeed != 1.0f)
+					{
+						CLogWriter::Write("CheckValidCondition: Type4 SELF reject - SPEED buff already active (dwID={})", pSkill->dwID);
+						return false;
+					}
+					break;
 
-			case BUFFTYPE_RESIST:
-				if (m_iFireR != 0 || m_iColdR != 0 || m_iLightningR != 0 || m_iMagicR != 0 || m_iDeseaseR != 0 || m_iPoisonR != 0)
-					return false;
-				break;
+				case BUFFTYPE_ABILITY:
+					if (m_iStr != 0 || m_iSta != 0 || m_iDex != 0 || m_iInt != 0 || m_iMAP != 0)
+					{
+						CLogWriter::Write("CheckValidCondition: Type4 SELF reject - ABILITY buff already active (dwID={})", pSkill->dwID);
+						return false;
+					}
+					break;
 
-			default:
-				break;
+				case BUFFTYPE_RESIST:
+					if (m_iFireR != 0 || m_iColdR != 0 || m_iLightningR != 0 || m_iMagicR != 0 || m_iDeseaseR != 0 || m_iPoisonR != 0)
+					{
+						CLogWriter::Write("CheckValidCondition: Type4 SELF reject - RESIST buff already active (dwID={})", pSkill->dwID);
+						return false;
+					}
+					break;
+
+				default:
+					break;
+			}
+		}
+		else
+		{
+			CLogWriter::Write(
+				"CheckValidCondition: Type4 SELF usable-item (scroll) pass-through dwID={} buffType={}",
+				pSkill->dwID, pType4->iBuffType);
 		}
 	}
 
@@ -745,6 +788,16 @@ bool CMagicSkillMng::MsgSend_MagicProcess(int iTargetID, __TABLE_UPC_SKILL* pSki
 	// Existing validity checks
 	if (pSkill == nullptr)
 		return false;
+
+	const bool bUsableItemDiag = (pSkill->dwID >= UIITEM_TYPE_USABLE_ID_MIN);
+	if (bUsableItemDiag)
+	{
+		CLogWriter::Write(
+			"MsgSend_MagicProcess: usable-item enter dwID={} target={} 1st={} 2nd={} selfAnim={} castTime={} recast={}",
+			pSkill->dwID, pSkill->iTarget, pSkill->dw1stTableType, pSkill->dw2ndTableType,
+			pSkill->iSelfAnimID1, pSkill->iCastTime, pSkill->iReCastTime);
+	}
+
 	// Check cooldowns first
 	auto itRecast    = m_RecastTimes.find(pSkill->dwID);
 	auto itNonAction = m_NonActionRecastTimes.find(pSkill->dwID);
@@ -752,12 +805,20 @@ bool CMagicSkillMng::MsgSend_MagicProcess(int iTargetID, __TABLE_UPC_SKILL* pSki
 	if (pSkill->iSelfAnimID1 > 0) // Casting skill with animation
 	{
 		if (IsCasting() || (itRecast != m_RecastTimes.end() && itRecast->second > 0))
+		{
+			if (bUsableItemDiag)
+				CLogWriter::Write("MsgSend_MagicProcess: usable-item reject - casting/recast (dwID={})", pSkill->dwID);
 			return false;
+		}
 	}
 	else // Instant/non-action skill
 	{
 		if (itNonAction != m_NonActionRecastTimes.end() && itNonAction->second > 0)
+		{
+			if (bUsableItemDiag)
+				CLogWriter::Write("MsgSend_MagicProcess: usable-item reject - nonaction recast (dwID={})", pSkill->dwID);
 			return false;
+		}
 		m_dwCastingStateNonAction = 0;
 		m_fCastTimeNonAction      = 0.0f;
 		m_dwNonActionMagicID      = 0;
@@ -765,7 +826,14 @@ bool CMagicSkillMng::MsgSend_MagicProcess(int iTargetID, __TABLE_UPC_SKILL* pSki
 	}
 
 	if (!CheckValidCondition(iTargetID, pSkill))
+	{
+		if (bUsableItemDiag)
+			CLogWriter::Write("MsgSend_MagicProcess: usable-item reject - CheckValidCondition failed (dwID={})", pSkill->dwID);
 		return false;
+	}
+
+	if (bUsableItemDiag)
+		CLogWriter::Write("MsgSend_MagicProcess: usable-item passed validity, target case={} (dwID={})", pSkill->iTarget, pSkill->dwID);
 
 	// 스킬 쓸 조건이 되는지 검사 끝...
 	///////////////////////////////////////////////////////////////////////////////////

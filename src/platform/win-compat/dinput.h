@@ -74,6 +74,8 @@ static const int  c_dfDIMouse2      = 0;
 #define DIK_6           0x07
 #define DIK_7           0x08
 #define DIK_8           0x09
+#define DIK_9           0x0A
+#define DIK_0           0x0B
 #define DIK_TAB         0x0F
 #define DIK_Q           0x10
 #define DIK_W           0x11

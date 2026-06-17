@@ -363,7 +363,20 @@ bool CUICmdList::CreateCategoryList()
 
 	// Unofficial. This isn't displayed officially.
 	if (CGameBase::s_pPlayer->m_InfoBase.iAuthority == AUTHORITY_MANAGER)
+	{
+		// macOS port GM toggle'ları (godmode/autoloot) — listenin EN ÜSTÜNDE (önce eklenir;
+		// multimap aynı key'de ekleme sırasını korur) ki uzun GM listesinde görünür/erişilebilir
+		// olsunlar. İsimleri g_szCmdMsg'de kodda set; seçilince '+godmode'/'+autoloot' (GM prefix '+').
+		for (e_ChatCmd cmd : { CMD_GODMODE, CMD_AUTOLOOT })
+		{
+			CommandInfo info;
+			info.ResourceID = IDS_CMD_VISIBLE; // tooltip için geçerli bir res (içerik önemsiz)
+			info.Command    = cmd;
+			m_categoryToCommandInfoMap.insert(std::make_pair(CMD_LIST_CAT_GM, info));
+		}
+
 		AppendToCommandMap(CMD_LIST_CAT_GM, CMD_VISIBLE, IDS_CMD_VISIBLE, IDS_CMD_PLC);
+	}
 
 	UpdateCommandList(m_iSelectedCategory); // initialize a cmd list for viewing when opening cmd window
 
@@ -434,6 +447,15 @@ bool CUICmdList::ExecuteCommand(int iCmdIndex)
 	if (iRealCmdIndex == CMD_WHISPER)
 	{
 		CGameProcedure::s_pProcMain->OpenCmdEdit(command);
+		return true;
+	}
+
+	// GM '+' komutları (godmode/autoloot) server'a CHAT olarak gönderilir; server Chat handler'ı
+	// '+' prefix + GM authority'yi OperationMessage'a yönlendirir (User.cpp). ParseChattingCommand
+	// yalnızca '/' client komutlarını işler (sscanf "/%s") → '+' ile çalışmaz. Bkz. MsgSend_Chat.
+	if (m_iSelectedCategory == CMD_LIST_CAT_GM)
+	{
+		CGameProcedure::s_pProcMain->MsgSend_Chat(N3_CHAT_NORMAL, '+' + command);
 		return true;
 	}
 

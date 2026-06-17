@@ -398,7 +398,7 @@ void CUIHotKeyDlg::InitIconUpdate()
 	if (!CGameProcedure::RegGetSetting("Count", &iHCount, sizeof(int)))
 		return;
 
-	if ((iHCount < 0) || (iHCount > 65))
+	if ((iHCount < 0) || (iHCount > (MAX_SKILL_HOTKEY_PAGE * MAX_SKILL_IN_HOTKEY)))
 		return;
 
 	int iSkillCount = 0;
@@ -410,6 +410,14 @@ void CUIHotKeyDlg::InitIconUpdate()
 		std::string str = "Data" + std::to_string(iSkillCount);
 		if (CGameProcedure::RegGetSetting(str.c_str(), &HD, sizeof(CHotkeyData)))
 		{
+			// Guard against out-of-range page/slot values from a stale or corrupt registry.
+			if (HD.row < 0 || HD.row >= MAX_SKILL_HOTKEY_PAGE
+				|| HD.column < 0 || HD.column >= MAX_SKILL_IN_HOTKEY)
+			{
+				iSkillCount++;
+				continue;
+			}
+
 			// Skill Tree Window가 아이디를 갖고 있지 않으면 continue..
 			if ((HD.iID < UIITEM_TYPE_USABLE_ID_MIN) && (!CGameProcedure::s_pProcMain->m_pUISkillTreeDlg->HasIDSkill(HD.iID)))
 				continue;
@@ -701,7 +709,7 @@ bool CUIHotKeyDlg::CalcMoveOffset()
 
 void CUIHotKeyDlg::EffectTriggerByHotKey(int iIndex)
 {
-	if (iIndex < 0 || iIndex >= 8)
+	if (iIndex < 0 || iIndex >= MAX_SKILL_IN_HOTKEY)
 		return;
 
 	if (m_pMyHotkey[m_iCurPage][iIndex] && m_pMyHotkey[m_iCurPage][iIndex]->pUIIcon->IsVisible())
@@ -840,7 +848,7 @@ bool CUIHotKeyDlg::ReceiveIconDrop(__IconItemSkill* /*spItem*/, POINT ptCur)
 	CN3UIArea* pArea = nullptr;
 
 	int iOrder       = -1;
-	for (int i = 0; i < ITEM_SLOT_COUNT; i++)
+	for (int i = 0; i < MAX_SKILL_IN_HOTKEY; i++)
 	{
 		pArea = CN3UIWndBase::GetChildAreaByiOrder(UI_AREA_TYPE_SKILL_HOTKEY, i);
 		if (pArea && pArea->IsIn(ptCur.x, ptCur.y))
@@ -972,9 +980,9 @@ bool CUIHotKeyDlg::SetReceiveSelectedItem(int iIndex)
 
 bool CUIHotKeyDlg::EffectTriggerByMouse()
 {
-	if (m_iSelectIndex < 0 || m_iSelectIndex >= 8)
+	if (m_iSelectIndex < 0 || m_iSelectIndex >= MAX_SKILL_IN_HOTKEY)
 		return false;
-	if (m_iSelectPage < 0 || m_iSelectPage >= 8)
+	if (m_iSelectPage < 0 || m_iSelectPage >= MAX_SKILL_HOTKEY_PAGE)
 		return false;
 
 	if (m_pMyHotkey[m_iSelectPage][m_iSelectIndex])

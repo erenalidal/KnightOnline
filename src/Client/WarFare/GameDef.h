@@ -58,6 +58,8 @@ enum eKeyMap : uint8_t
 	KM_HOTKEY6               = DIK_6,
 	KM_HOTKEY7               = DIK_7,
 	KM_HOTKEY8               = DIK_8,
+	KM_HOTKEY9               = DIK_9,
+	KM_HOTKEY10              = DIK_0, // 10th slot bound to the '0' key
 	KM_TOGGLE_RUN            = DIK_T,
 	KM_TOGGLE_MOVE_CONTINOUS = DIK_E,
 	KM_TOGGLE_ATTACK         = DIK_R,
@@ -1259,7 +1261,7 @@ inline constexpr int MAX_SKILL_IN_PAGE                 = 6;  // Max number of of
 inline constexpr int MAX_SKILL_PAGE_NUM                = 7;  // Max number of pages per skill category
 
 inline constexpr int MAX_SKILL_HOTKEY_PAGE             = 8;  // Max pages for a skill bar (CUIHotKeyDlg).
-inline constexpr int MAX_SKILL_IN_HOTKEY               = 8;  // Max number of skill icons per page for a skill bar (CUIHotKeyDlg).
+inline constexpr int MAX_SKILL_IN_HOTKEY               = 10; // Max number of skill icons per page for a skill bar (CUIHotKeyDlg). Keys 1-9,0.
 
 inline constexpr int MAX_AVAILABLE_CHARACTER           = 3;  // Max character slots available per server
 

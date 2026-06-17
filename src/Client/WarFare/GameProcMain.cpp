@@ -287,6 +287,12 @@ void CGameProcMain::Init()
 	for (uint32_t resource = IDS_CMD_ROYALORDER; resource <= IDS_CMD_REWARD; resource++)
 		g_szCmdMsg[i++] = fmt::format_text_resource(resource);
 
+	// GM toggle komutları (macOS port): isimler resource/TBL yerine kodda. Sıra UICmdList.h
+	// e_ChatCmd ile AYNI (CMD_GODMODE, CMD_AUTOLOOT — CMD_REWARD'dan hemen sonra). Pencere bunları
+	// '+godmode'/'+autoloot' olarak server'a yollar (ExecuteCommand GM prefix '+').
+	g_szCmdMsg[i++] = "godmode";  // CMD_GODMODE
+	g_szCmdMsg[i++] = "autoloot"; // CMD_AUTOLOOT
+
 	s_SndMgr.ReleaseStreamObj(&s_pSnd_BGM);
 
 	if (m_pWarMessage != nullptr)
@@ -1200,8 +1206,12 @@ void CGameProcMain::ProcessLocalInput(uint32_t dwMouseFlags)
 		iHotKey = 6;
 	else if (s_pLocalInput->IsKeyPress(KM_HOTKEY8))
 		iHotKey = 7;
+	else if (s_pLocalInput->IsKeyPress(KM_HOTKEY9))
+		iHotKey = 8;
+	else if (s_pLocalInput->IsKeyPress(KM_HOTKEY10))
+		iHotKey = 9;
 
-	if ((iHotKey >= 0 && iHotKey < 8) && CN3UIBase::GetFocusedEdit() == nullptr
+	if ((iHotKey >= 0 && iHotKey < MAX_SKILL_IN_HOTKEY) && CN3UIBase::GetFocusedEdit() == nullptr
 		&& m_pSubProcPerTrade->m_ePerTradeState == PER_TRADE_STATE_NONE)
 	{
 		m_pUIHotKeyDlg->EffectTriggerByHotKey(iHotKey);
