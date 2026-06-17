@@ -40,6 +40,7 @@ public:
 	void RecvUserInfo(char* pBuf);
 	void RecvUserInOut(char* pBuf);
 	void RecvUserMove(char* pBuf);
+	void RecvMonsterSummon(char* pBuf); // +monsummon: GM mob spawn isteği
 	void RecvUserMoveEdge(char* pBuf);
 	void RecvUserLogOut(char* pBuf);
 	void RecvUserRegene(char* pBuf);

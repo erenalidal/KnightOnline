@@ -501,9 +501,45 @@ void OperationMessage::Assault()
 	// TODO
 }
 
+// +monsummon <monsterSid> [adet] — GM, bulunduğu yere mob spawn eder (test/araç).
+// Komut Ebenezer'da işlenir ama NPC'ler AIServer'da; AG_MONSTER_SUMMON ile AIServer'a iletilir.
 void OperationMessage::MonSummon()
 {
-	// TODO
+	if (_srcUser == nullptr) // telnet'te kaynak konum yok → oyun-içi GM gerekir
+		return;
+
+	if (GetArgCount() < 1)
+	{
+		_srcUser->SendSysMsg("[GM] kullanim: +monsummon <monsterId> [adet]");
+		return;
+	}
+
+	int sid   = ParseInt(0);
+	int count = (GetArgCount() >= 2) ? ParseInt(1) : 1;
+	if (sid <= 0)
+	{
+		_srcUser->SendSysMsg("[GM] gecersiz monsterId");
+		return;
+	}
+	if (count < 1)
+		count = 1;
+	if (count > 20)
+		count = 20; // tek seferde guvenli ust sinir
+
+	_USER_DATA* pData = _srcUser->m_pUserData;
+
+	char sendBuffer[64];
+	int  sendIndex = 0;
+	SetByte(sendBuffer, AG_MONSTER_SUMMON, sendIndex);
+	SetShort(sendBuffer, static_cast<int16_t>(sid), sendIndex);
+	SetByte(sendBuffer, static_cast<uint8_t>(count), sendIndex);
+	SetByte(sendBuffer, pData->m_bZone, sendIndex);
+	SetFloat(sendBuffer, pData->m_curx, sendIndex);
+	SetFloat(sendBuffer, pData->m_cury, sendIndex);
+	SetFloat(sendBuffer, pData->m_curz, sendIndex);
+	_main->Send_AIServer(pData->m_bZone, sendBuffer, sendIndex);
+
+	_srcUser->SendSysMsg(fmt::format("[GM] Monster summon istegi gonderildi: sid={} x{}", sid, count));
 }
 
 void OperationMessage::MonSummonAll()

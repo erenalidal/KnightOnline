@@ -158,6 +158,10 @@ void CGameSocket::Parsing(int /*length*/, char* pData)
 			RecvUserMove(pData + index);
 			break;
 
+		case AG_MONSTER_SUMMON:
+			RecvMonsterSummon(pData + index);
+			break;
+
 		case AG_USER_MOVEEDGE:
 			RecvUserMoveEdge(pData + index);
 			break;
@@ -528,6 +532,28 @@ void CGameSocket::RecvUserMove(char* pBuf)
 
 	SetUid(fX, fZ, uid, speed);
 	//TRACE(_T("RecvUserMove()---> uid = %d, x=%f, z=%f \n"), uid, fX, fZ);
+}
+
+// +monsummon: Ebenezer'dan gelen GM mob-spawn isteği.
+// [short sid][byte count][byte zone][float x][float y][float z]
+void CGameSocket::RecvMonsterSummon(char* pBuf)
+{
+	int     index = 0;
+	int16_t sid   = GetShort(pBuf, index);
+	uint8_t count = GetByte(pBuf, index);
+	uint8_t zone  = GetByte(pBuf, index);
+	float   x     = GetFloat(pBuf, index);
+	float   y     = GetFloat(pBuf, index);
+	float   z     = GetFloat(pBuf, index);
+
+	for (int i = 0; i < count; i++)
+	{
+		// Aynı noktada üst üste binmesin diye küçük rastgele dağıt.
+		float ox = x + (float) myrand(-3, 3);
+		float oz = z + (float) myrand(-3, 3);
+		if (!m_pMain->SpawnMonster(sid, zone, ox, y, oz))
+			break; // tablo/zone geçersiz ya da havuz dolu → dur
+	}
 }
 
 void CGameSocket::RecvUserMoveEdge(char* pBuf)

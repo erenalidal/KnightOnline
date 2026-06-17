@@ -836,6 +836,7 @@ enum e_AIOpcode : uint8_t
 	AG_USER_PARTY          = 111, // 파티처리 담당
 	AG_USER_VISIBILITY     = 112, // updates invisibility status
 	AG_NPC_HP_CHANGE       = 113, // updates an NPC's HP
+	AG_MONSTER_SUMMON      = 114, // GM +monsummon: spawn monster at coords (Ebenezer→AIServer)
 };
 
 #endif                            // SHARED_PACKETS_H

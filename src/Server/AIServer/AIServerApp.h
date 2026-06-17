@@ -64,6 +64,10 @@ public:
 
 	void GameServerAcceptThread();
 	bool AddObjectEventNpc(_OBJECT_EVENT* pEvent, int zone_number);
+	// +monsummon: belirtilen tipte bir mob'u (sid) verilen zone/konumda canlı olarak spawn eder.
+	// Boş thread slot'u bulur (yoksa yeni thread), _npcMap'e ekler; NPC thread'i SetLive ile
+	// canlandırıp AG_NPC_INFO'yu client'lara yayar. Test/GM aracı.
+	bool SpawnMonster(int16_t sid, int16_t zone, float x, float y, float z);
 	void AllNpcInfo();
 	CUser* GetUserPtr(int nid);
 	int GetZoneIndex(int zoneId) const;

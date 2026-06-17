@@ -1502,6 +1502,119 @@ bool AIServerApp::AddObjectEventNpc(_OBJECT_EVENT* pEvent, int zone_number)
 	return true;
 }
 
+// +monsummon: tek bir mob'u (sid) verilen zone/konumda canlı spawn eder.
+bool AIServerApp::SpawnMonster(int16_t sid, int16_t zone, float x, float y, float z)
+{
+	// 1) Zone bu AIServer'a ait mi + map yüklü mü?
+	int nServerNum = GetServerNumber(zone);
+	if (_serverZoneType != nServerNum && _serverZoneType != UNIFY_ZONE)
+		return false;
+
+	int nZoneIndex = GetZoneIndex(zone);
+	if (nZoneIndex < 0)
+		return false;
+	if (GetMapByIndex(nZoneIndex) == nullptr)
+		return false;
+
+	// 2) Monster tablosundan stat (monsterlar _monTableMap).
+	model::Npc* pNpcTable = _monTableMap.GetData(sid);
+	if (pNpcTable == nullptr)
+	{
+		spdlog::error("AIServerApp::SpawnMonster: invalid monster sid={}", sid);
+		return false;
+	}
+
+	// 3) Benzersiz nid: nid'ler 0.._totalNpcCount-1 dolu; sıradakini al.
+	//    nid + NPC_BAND client'a Short olarak gidiyor → taşma olmamalı.
+	if (_totalNpcCount + NPC_BAND >= 32767)
+	{
+		spdlog::error("AIServerApp::SpawnMonster: nid space full (total={})", _totalNpcCount);
+		return false;
+	}
+	int16_t newNid = static_cast<int16_t>(_totalNpcCount);
+
+	// 4) Boş thread slot'u bul; yoksa yeni thread kur.
+	CNpcThread* pThread = nullptr;
+	int         slot    = -1;
+	for (CNpcThread* t : _npcThreads)
+	{
+		for (int i = 0; i < NPC_NUM; i++)
+		{
+			if (t->m_pNpc[i] == nullptr)
+			{
+				pThread = t;
+				slot    = i;
+				break;
+			}
+		}
+		if (pThread != nullptr)
+			break;
+	}
+	bool bNewThread = false;
+	if (pThread == nullptr)
+	{
+		pThread                  = new CNpcThread(); // ctor m_pNpc[]'i nullptr'lar
+		pThread->m_sThreadNumber = static_cast<int>(_npcThreads.size());
+		slot                     = 0;
+		bNewThread               = true;
+	}
+
+	// 5) NPC'yi kur (AddObjectEventNpc deseni; NORMAL_OBJECT + canlı).
+	CNpc* pNpc             = new CNpc();
+	pNpc->m_sNid           = newNid;
+	pNpc->m_sSid           = sid;
+	pNpc->m_byMoveType     = 1; // basit hareket (path gerektirmez: 2/3 path ister)
+	pNpc->m_byInitMoveType = 1;
+	pNpc->m_byBattlePos    = 0;
+	pNpc->m_fSecForMetor   = 4.0f;
+
+	pNpc->Load(pNpcTable, false);
+
+	pNpc->m_sCurZone       = zone;
+	pNpc->m_fCurX          = x;
+	pNpc->m_fCurY          = y;
+	pNpc->m_fCurZ          = z;
+
+	pNpc->m_nInitMinX      = static_cast<int>(x - 5);
+	pNpc->m_nInitMinY      = static_cast<int>(z - 5);
+	pNpc->m_nInitMaxX      = static_cast<int>(x + 5);
+	pNpc->m_nInitMaxY      = static_cast<int>(z + 5);
+
+	pNpc->m_sRegenTime     = 30 * 1000;
+	pNpc->m_sMaxPathCount  = 0;
+	pNpc->m_ZoneIndex      = nZoneIndex;
+	pNpc->m_byObjectType   = NORMAL_OBJECT;
+	pNpc->m_bFirstLive     = 1; // ilk doğuş
+	pNpc->m_NpcState       = NPC_LIVE;
+	pNpc->m_sThreadNumber  = pThread->m_sThreadNumber;
+
+	pNpc->Init();
+
+	// 6) Global map'e ekle (nid ile lookup: saldırı/HP senkronu için).
+	if (!_npcMap.PutData(pNpc->m_sNid, pNpc))
+	{
+		spdlog::warn("AIServerApp::SpawnMonster: PutData fail [nid={}]", pNpc->m_sNid);
+		delete pNpc;
+		if (bNewThread)
+			delete pThread;
+		return false;
+	}
+
+	_totalNpcCount++; // nid tüketildi
+
+	// 7) Pointer'ı EN SON yaz (thread ya null görür/atlar, ya tam-init NPC görür → yarış yok).
+	pThread->m_pNpc[slot] = pNpc;
+	if (bNewThread)
+	{
+		_npcThreads.push_back(pThread);
+		pThread->start();
+	}
+
+	spdlog::info("AIServerApp::SpawnMonster: spawned nid={} sid={} zone={} ({:.0f},{:.0f},{:.0f})",
+		pNpc->m_sNid, sid, zone, x, y, z);
+	return true;
+}
+
 int AIServerApp::GetZoneIndex(int zoneId) const
 {
 	for (size_t i = 0; i < _zones.size(); i++)

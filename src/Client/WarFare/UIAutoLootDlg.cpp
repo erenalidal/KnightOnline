@@ -73,13 +73,15 @@ void CUIAutoLootDlg::SetVisible(bool bVisible)
 void CUIAutoLootDlg::SetUnique(bool bUnique)
 {
 	m_bUnique = bUnique;
-	// btn_unique artık gerçek bir tick-box: NORMAL görseli boş kutu, ON görseli işaretli
-	// kutu (rookie-tip "don't show again" checkbox UV'leri, ui_message_us.dxt).
-	// ON state = işaretli görsel, NORMAL = boş kutu.
+	// btn_unique artık CHECK-style buton (rookie-tip "don't display again" checkbox ile
+	// birebir aynı). CHECK butonda kalıcı "işaretli" durum = UI_STATE_BUTTON_DOWN,
+	// "boş" = NORMAL. Programatik set (Open reset) için state'i doğrudan yazıyoruz;
+	// kullanıcı tıklamasında butonun kendi toggle'ı çalışır (bkz. ReceiveMessage).
 	if (m_pBtnUnique != nullptr)
-		m_pBtnUnique->SetState(bUnique ? UI_STATE_BUTTON_ON : UI_STATE_BUTTON_NORMAL);
+		m_pBtnUnique->SetState(bUnique ? UI_STATE_BUTTON_DOWN : UI_STATE_BUTTON_NORMAL);
 	// Etiket additif anlamı taşır: işaretliyse unique item'lar fiyatı min-Noah'ın
-	// ALTINDA olsa bile toplanır ("sadece unique" DEĞİL). Tick durumu görselden okunur.
+	// ALTINDA olsa bile toplanır ("sadece unique" DEĞİL). Durum, basılı/basılmamış
+	// buton görselinden okunuyor (kullanıcı ayırt edebildiğini doğruladı).
 	if (m_pLblUnique != nullptr)
 		m_pLblUnique->SetString("Loot uniques anyway");
 }
@@ -187,8 +189,11 @@ bool CUIAutoLootDlg::ReceiveMessage(CN3UIBase* pSender, uint32_t dwMsg)
 
 		if (pSender == m_pBtnUnique)
 		{
-			// Toggle the unique-only flag (stay open).
-			SetUnique(!m_bUnique);
+			// CHECK-style buton kendi state'ini zaten toggle etti (NORMAL<->DOWN).
+			// Bayrağı butonun gerçek durumundan oku — SetState ÇAĞIRMA (state'i ezmeyelim).
+			m_bUnique = (m_pBtnUnique->GetState() == UI_STATE_BUTTON_DOWN);
+			if (m_pLblUnique != nullptr)
+				m_pLblUnique->SetString("Loot uniques anyway");
 			return true;
 		}
 
