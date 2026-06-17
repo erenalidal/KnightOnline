@@ -1027,7 +1027,7 @@ void OperationMessage::AutoLoot()
 
 	// +autoloot            → aç/kapa toggle
 	// +autoloot off|0|kapat → kapat
-	// +autoloot <sayı>     → aç + min Noah (SellPrice) eşiği (çöp filtresi)
+	// +autoloot <sayı>     → aç + min Noah (BuyPrice) eşiği (çöp filtresi)
 	// +autoloot unique     → aç + unique (değerden bağımsız) topla toggle
 	// (Popup #13 gelene kadar test/komut yolu.)
 	if (GetArgCount() >= 1)

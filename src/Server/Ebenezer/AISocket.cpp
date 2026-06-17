@@ -8,6 +8,7 @@
 #include "db_resources.h"
 
 #include <shared/crc32.h>
+#include <shared/globals.h> // SALE_TYPE_FULL (item satış-değeri hesabı)
 #include <shared/lzf.h>
 #include <shared/packets.h>
 #include <shared/StringUtils.h>
@@ -1234,7 +1235,18 @@ void CAISocket::RecvNpcGiveItem(char* pBuf)
 	// (TYPE_MONEY_SID) → GoldChange; item → GiveItem. Sığan bundle'dan çıkar; sığmayan (envanter
 	// dolu) kalır ve normal yoldan yere düşer → item kaybı OLMAZ.
 	constexpr int AUTOLOOT_MONEY_SID    = 900000000; // AIServer TYPE_MONEY_SID
-	constexpr int AUTOLOOT_UNIQUE_VALUE = 500000;    // "unique" kabul edilen min SellPrice (m_bAutoLootUniqueOnly için)
+	// item'ın NOAH DEĞERİ = oyuncunun NPC'ye satınca aldığı para. ITEM tablosunda SellPrice
+	// bir FİYAT DEĞİL, e_ItemSaleType bayrağı (61530 item'ın 61455'inde 0). Gerçek satış değeri
+	// BuyPrice'tan türetilir: (SellPrice==SALE_TYPE_FULL) ? BuyPrice : BuyPrice/4
+	// (bkz. CUser sell, User.cpp:5449). Filtre bu gerçek değerle çalışmalı.
+	auto itemNoahValue = [](const model::Item* it) -> int
+	{
+		int v = it->BuyPrice;
+		if (it->SellPrice != SALE_TYPE_FULL)
+			v /= 4; // premium'da /6 ama filtre için baz /4 yeterli
+		return v;
+	};
+	constexpr int AUTOLOOT_UNIQUE_VALUE = 100000;    // "unique/değerli" proxy: satış-değeri >= bu (gerçek unique-grade alanı yok)
 	if (pUser->m_bAutoLoot)
 	{
 		int remaining = 0, givenItems = 0, gotGold = 0;
@@ -1250,15 +1262,16 @@ void CAISocket::RecvNpcGiveItem(char* pBuf)
 			}
 			else if (pItem->itemid[i] > 0) // geçerli item
 			{
-				// FİLTRE (#13): item SellPrice >= m_nAutoLootMinValue ise topla (çöpleri eler).
+				// FİLTRE (#13): item satış-değeri (noah) >= m_nAutoLootMinValue ise topla (çöpleri eler).
 				// m_bAutoLootUniqueOnly açıksa değerden bağımsız uniqueları da topla.
 				// Filtreden geçmeyen VEYA envantere sığmayan item bundle'da KALIR → cesette elle
 				// lootlanabilir (#15). pItem->itemid[i] sıfırlanmazsa aşağıda WIZ_ITEM_DROP'a girer.
 				model::Item* pT  = _main->m_ItemTableMap.GetData(pItem->itemid[i]);
+				int          iVal    = (pT != nullptr) ? itemNoahValue(pT) : 0;
 				bool         bUnique = (pT != nullptr && pUser->m_bAutoLootUniqueOnly
-										&& pT->SellPrice >= AUTOLOOT_UNIQUE_VALUE);
+										&& iVal >= AUTOLOOT_UNIQUE_VALUE);
 				bool         bPass   = (pT != nullptr)
-									 && (pT->SellPrice >= pUser->m_nAutoLootMinValue || bUnique);
+									 && (iVal >= pUser->m_nAutoLootMinValue || bUnique);
 
 				if (bPass && pUser->GiveItem(pItem->itemid[i], pItem->count[i]))
 				{
