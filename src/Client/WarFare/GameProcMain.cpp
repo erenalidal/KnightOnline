@@ -3636,8 +3636,11 @@ void CGameProcMain::MsgRecv_ItemCountChange(Packet& pkt) // Item Count Change..
 			__TABLE_ITEM_BASIC* pItem = s_pTbl_Items_Basic.Find(iID / 1000 * 1000);
 			if (pItem != nullptr)
 			{
-				std::string szMsg = fmt::format_text_resource(IDS_ITEM_RECEIVED, pItem->szName);
-				MsgOutput(szMsg, 0xFFFFFF00);
+				// Elle loot (UIDroppedItemDlg) ile AYNI mesaj/renk: IDS_ITEM_GET_BY_RULE + mavi
+				// 0xff9b9bff. (Önceden IDS_ITEM_RECEIVED + sarı idi → auto-loot elle-loot'tan
+				// farklı görünüyordu; kullanıcı aynısını istedi.)
+				std::string szMsg = fmt::format_text_resource(IDS_ITEM_GET_BY_RULE, pItem->szName);
+				MsgOutput(szMsg, 0xff9b9bff);
 			}
 		}
 	}
