@@ -508,19 +508,11 @@ void OperationMessage::MonSummon()
 	if (_srcUser == nullptr) // telnet'te kaynak konum yok → oyun-içi GM gerekir
 		return;
 
-	if (GetArgCount() < 1)
-	{
-		_srcUser->SendSysMsg("[GM] kullanim: +monsummon <monsterId> [adet]");
-		return;
-	}
-
-	int sid   = ParseInt(0);
+	// Argümansız çağrı: varsayılan test mob'u (100 = Kecoon) 1 adet.
+	int sid   = (GetArgCount() >= 1) ? ParseInt(0) : 100;
 	int count = (GetArgCount() >= 2) ? ParseInt(1) : 1;
 	if (sid <= 0)
-	{
-		_srcUser->SendSysMsg("[GM] gecersiz monsterId");
-		return;
-	}
+		sid = 100;
 	if (count < 1)
 		count = 1;
 	if (count > 20)
@@ -539,6 +531,9 @@ void OperationMessage::MonSummon()
 	SetFloat(sendBuffer, pData->m_curz, sendIndex);
 	_main->Send_AIServer(pData->m_bZone, sendBuffer, sendIndex);
 
+	spdlog::warn("OperationMessage::MonSummon: charId={} sid={} count={} zone={} x={:.0f} y={:.0f} z={:.0f}",
+		_srcUser->m_pUserData->m_id, sid, count, (int) pData->m_bZone, pData->m_curx, pData->m_cury,
+		pData->m_curz);
 	_srcUser->SendSysMsg(fmt::format("[GM] Monster summon istegi gonderildi: sid={} x{}", sid, count));
 }
 

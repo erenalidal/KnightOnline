@@ -367,7 +367,7 @@ bool CUICmdList::CreateCategoryList()
 		// macOS port GM toggle'ları (godmode/autoloot) — listenin EN ÜSTÜNDE (önce eklenir;
 		// multimap aynı key'de ekleme sırasını korur) ki uzun GM listesinde görünür/erişilebilir
 		// olsunlar. İsimleri g_szCmdMsg'de kodda set; seçilince '+godmode'/'+autoloot' (GM prefix '+').
-		for (e_ChatCmd cmd : { CMD_GODMODE, CMD_AUTOLOOT })
+		for (e_ChatCmd cmd : { CMD_GODMODE, CMD_AUTOLOOT, CMD_MONSUMMON })
 		{
 			CommandInfo info;
 			info.ResourceID = IDS_CMD_VISIBLE; // tooltip için geçerli bir res (içerik önemsiz)

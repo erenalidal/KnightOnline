@@ -291,8 +291,9 @@ void CGameProcMain::Init()
 	// GM toggle komutları (macOS port): isimler resource/TBL yerine kodda. Sıra UICmdList.h
 	// e_ChatCmd ile AYNI (CMD_GODMODE, CMD_AUTOLOOT — CMD_REWARD'dan hemen sonra). Pencere bunları
 	// '+godmode'/'+autoloot' olarak server'a yollar (ExecuteCommand GM prefix '+').
-	g_szCmdMsg[i++] = "godmode";  // CMD_GODMODE
-	g_szCmdMsg[i++] = "autoloot"; // CMD_AUTOLOOT
+	g_szCmdMsg[i++] = "godmode";   // CMD_GODMODE
+	g_szCmdMsg[i++] = "autoloot";  // CMD_AUTOLOOT
+	g_szCmdMsg[i++] = "monsummon"; // CMD_MONSUMMON
 
 	s_SndMgr.ReleaseStreamObj(&s_pSnd_BGM);
 

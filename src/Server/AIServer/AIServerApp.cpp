@@ -1508,13 +1508,23 @@ bool AIServerApp::SpawnMonster(int16_t sid, int16_t zone, float x, float y, floa
 	// 1) Zone bu AIServer'a ait mi + map yüklü mü?
 	int nServerNum = GetServerNumber(zone);
 	if (_serverZoneType != nServerNum && _serverZoneType != UNIFY_ZONE)
+	{
+		spdlog::warn("SpawnMonster: zone {} serverNum {} != this {} → reddedildi", zone, nServerNum,
+			(int) _serverZoneType);
 		return false;
+	}
 
 	int nZoneIndex = GetZoneIndex(zone);
 	if (nZoneIndex < 0)
+	{
+		spdlog::warn("SpawnMonster: zone {} index bulunamadı", zone);
 		return false;
+	}
 	if (GetMapByIndex(nZoneIndex) == nullptr)
+	{
+		spdlog::warn("SpawnMonster: zone {} (index {}) map null", zone, nZoneIndex);
 		return false;
+	}
 
 	// 2) Monster tablosundan stat (monsterlar _monTableMap).
 	model::Npc* pNpcTable = _monTableMap.GetData(sid);
@@ -1610,8 +1620,8 @@ bool AIServerApp::SpawnMonster(int16_t sid, int16_t zone, float x, float y, floa
 		pThread->start();
 	}
 
-	spdlog::info("AIServerApp::SpawnMonster: spawned nid={} sid={} zone={} ({:.0f},{:.0f},{:.0f})",
-		pNpc->m_sNid, sid, zone, x, y, z);
+	spdlog::warn("AIServerApp::SpawnMonster: spawned nid={} sid={} zone={} ({:.0f},{:.0f},{:.0f}) thread={} slot={}",
+		pNpc->m_sNid, sid, zone, x, y, z, pThread->m_sThreadNumber, slot);
 	return true;
 }
 

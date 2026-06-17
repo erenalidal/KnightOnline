@@ -546,6 +546,9 @@ void CGameSocket::RecvMonsterSummon(char* pBuf)
 	float   y     = GetFloat(pBuf, index);
 	float   z     = GetFloat(pBuf, index);
 
+	spdlog::warn("CGameSocket::RecvMonsterSummon: sid={} count={} zone={} x={:.0f} y={:.0f} z={:.0f}",
+		sid, (int) count, (int) zone, x, y, z);
+
 	for (int i = 0; i < count; i++)
 	{
 		// Aynı noktada üst üste binmesin diye küçük rastgele dağıt.
