@@ -436,6 +436,13 @@ bool OperationMessage::Process(const std::string_view command)
 				Repair();
 				break;
 
+			// +monsummon <sid> [adet] — bulunduğun yere mob spawn (argümansız sid 100).
+			// NOT: yukarıdaki "+monsummon" case'i #if 0 (TODO) bloğunda derleme-dışıydı;
+			// MonSummon implement edildi → aktif dispatch'e taşındı.
+			case "+monsummon"_djb2:
+				MonSummon();
+				break;
+
 			// Unhandled command.
 			default:
 				return false;
