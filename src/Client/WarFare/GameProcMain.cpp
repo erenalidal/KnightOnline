@@ -1625,7 +1625,12 @@ void CGameProcMain::OpenAutoLootDlg()
 	if (CN3UIWndBase::s_pAutoLootDlg == nullptr)
 		return;
 
-	CN3UIWndBase::s_pAutoLootDlg->Open();
+	// Akıllı toggle: autoloot zaten açıksa popup açma, direkt kapat (disable).
+	// Kapalıysa ayar popup'ını aç (OK enable eder). Böylece "disable edemiyoruz" çözülür.
+	if (CUIAutoLootDlg::IsEnabled())
+		CN3UIWndBase::s_pAutoLootDlg->DisableAutoLoot();
+	else
+		CN3UIWndBase::s_pAutoLootDlg->Open();
 }
 
 void CGameProcMain::MsgSend_Regen()

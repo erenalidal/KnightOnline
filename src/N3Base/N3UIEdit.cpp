@@ -566,6 +566,28 @@ void CN3UIEdit::UpdateTextFromEditCtrl()
 		return;
 
 	::GetWindowText(s_hWndEdit, s_szBuffTmp, 512);
+
+	// NumberOnly edit'lerde harf/işaret gelirse ele (macOS native NSTextField
+	// her karakteri kabul ediyor; sadece rakamları tut ve temizleneni geri yaz).
+	if (s_pFocusedEdit->m_bNumberOnly)
+	{
+		char szClean[512];
+		int  iDst = 0;
+		for (int iSrc = 0; s_szBuffTmp[iSrc] != '\0' && iDst < 511; ++iSrc)
+		{
+			if (s_szBuffTmp[iSrc] >= '0' && s_szBuffTmp[iSrc] <= '9')
+				szClean[iDst++] = s_szBuffTmp[iSrc];
+		}
+		szClean[iDst] = '\0';
+
+		// Filtre bir şey kırptıysa native kontrole de temizlenmiş hali yaz (görsel senkron).
+		if (strcmp(szClean, s_szBuffTmp) != 0)
+			::SetWindowText(s_hWndEdit, szClean);
+
+		s_pFocusedEdit->SetString(szClean);
+		return;
+	}
+
 	s_pFocusedEdit->SetString(s_szBuffTmp);
 }
 

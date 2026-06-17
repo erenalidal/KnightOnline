@@ -14,6 +14,7 @@
 
 class CN3UIEdit;
 class CN3UIButton;
+class CN3UIString;
 
 class CUIAutoLootDlg : public CN3UIBase
 {
@@ -24,6 +25,7 @@ public:
 	CN3UIButton* m_pBtnUnique;
 	CN3UIButton* m_pBtnOk;
 	CN3UIButton* m_pBtnCancel;
+	CN3UIString* m_pLblUnique; // "Unique: ON/OFF" — toggle durumunu gösterir
 
 public:
 	CUIAutoLootDlg();
@@ -49,6 +51,15 @@ public:
 		return m_bUnique;
 	}
 
+	// Akıllı toggle: autoloot zaten açıksa popup yerine direkt kapat (disable).
+	// s_bEnabled, en son uygulanan ON/OFF durumunu client tarafında izler.
+	static bool IsEnabled()
+	{
+		return s_bEnabled;
+	}
+	void DisableAutoLoot(); // WIZ_AUTOLOOT_SETTINGS enable=0 gönderir, s_bEnabled=false
+
 private:
+	static bool s_bEnabled;
 	void SendSettings(); // builds + sends WIZ_AUTOLOOT_SETTINGS (enable=1)
 };

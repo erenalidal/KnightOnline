@@ -14,8 +14,11 @@
 #include <N3Base/N3UIButton.h>
 #include <N3Base/N3UIEdit.h>
 #include <N3Base/N3UIString.h>
+#include <N3Base/LogWriter.h>
 
 #include <cstdlib>
+
+bool CUIAutoLootDlg::s_bEnabled = false;
 
 CUIAutoLootDlg::CUIAutoLootDlg()
 {
@@ -24,6 +27,7 @@ CUIAutoLootDlg::CUIAutoLootDlg()
 	m_pBtnUnique   = nullptr;
 	m_pBtnOk       = nullptr;
 	m_pBtnCancel   = nullptr;
+	m_pLblUnique   = nullptr;
 }
 
 CUIAutoLootDlg::~CUIAutoLootDlg()
@@ -45,6 +49,14 @@ bool CUIAutoLootDlg::Load(File& file)
 	N3_VERIFY_UI_COMPONENT(m_pBtnUnique, GetChildByID<CN3UIButton>("btn_unique"));
 	N3_VERIFY_UI_COMPONENT(m_pBtnOk, GetChildByID<CN3UIButton>("btn_ok"));
 	N3_VERIFY_UI_COMPONENT(m_pBtnCancel, GetChildByID<CN3UIButton>("btn_cancel"));
+	m_pLblUnique = GetChildByID<CN3UIString>("String_AutoLoot_Unique"); // opsiyonel
+
+	// Min-Noah max 9 hane (taşmayı/overflow'u önle) + sadece rakam kabul et.
+	if (m_pEditMinNoah != nullptr)
+	{
+		m_pEditMinNoah->SetMaxString(9);
+		m_pEditMinNoah->SetNumberOnly(true); // harf/işaret girişini engelle (#13)
+	}
 
 	return true;
 }
@@ -61,8 +73,15 @@ void CUIAutoLootDlg::SetVisible(bool bVisible)
 void CUIAutoLootDlg::SetUnique(bool bUnique)
 {
 	m_bUnique = bUnique;
+	// btn_unique artık gerçek bir tick-box: NORMAL görseli boş kutu, ON görseli işaretli
+	// kutu (rookie-tip "don't show again" checkbox UV'leri, ui_message_us.dxt).
+	// ON state = işaretli görsel, NORMAL = boş kutu.
 	if (m_pBtnUnique != nullptr)
 		m_pBtnUnique->SetState(bUnique ? UI_STATE_BUTTON_ON : UI_STATE_BUTTON_NORMAL);
+	// Etiket additif anlamı taşır: işaretliyse unique item'lar fiyatı min-Noah'ın
+	// ALTINDA olsa bile toplanır ("sadece unique" DEĞİL). Tick durumu görselden okunur.
+	if (m_pLblUnique != nullptr)
+		m_pLblUnique->SetString("Loot uniques anyway");
 }
 
 int CUIAutoLootDlg::GetMinNoah() const
@@ -87,6 +106,7 @@ void CUIAutoLootDlg::SetMinNoah(int iVal)
 
 void CUIAutoLootDlg::Open()
 {
+	CLogWriter::Write("AutoLootDlg::Open called");
 	// Başlık/etiket metinlerini autoloot'a uygun set et (.uif'ten gelen eski metin yerine).
 	CN3UIString* pMsg = GetChildByID<CN3UIString>("String_PersonTradeEdit_Msg");
 	if (pMsg != nullptr)
@@ -126,8 +146,29 @@ void CUIAutoLootDlg::SendSettings()
 	CAPISocket::MP_AddDword(byBuff, iOffset, static_cast<uint32_t>(iMinNoah));
 	CAPISocket::MP_AddByte(byBuff, iOffset, byUnique);
 
+	CLogWriter::Write("AutoLootDlg::SendSettings min=%d unique=%d off=%d", iMinNoah, (int) byUnique, iOffset);
 	__ASSERT(iOffset <= (int) sizeof(byBuff), "Send Buffer OverFlow");
 	CGameProcedure::s_pSocket->Send(byBuff, iOffset);
+
+	s_bEnabled = true; // bir sonraki toggle artık kapatma (disable) yapsın
+}
+
+void CUIAutoLootDlg::DisableAutoLoot()
+{
+	uint8_t byBuff[16];
+	int     iOffset = 0;
+
+	// [byte WIZ_AUTOLOOT_SETTINGS][byte enable=0][DWORD 0][byte 0]
+	CAPISocket::MP_AddByte(byBuff, iOffset, WIZ_AUTOLOOT_SETTINGS);
+	CAPISocket::MP_AddByte(byBuff, iOffset, 0); // enable=0 -> server m_bAutoLoot=false + "[Autoloot] OFF"
+	CAPISocket::MP_AddDword(byBuff, iOffset, 0);
+	CAPISocket::MP_AddByte(byBuff, iOffset, 0);
+
+	CLogWriter::Write("AutoLootDlg::DisableAutoLoot");
+	__ASSERT(iOffset <= (int) sizeof(byBuff), "Send Buffer OverFlow");
+	CGameProcedure::s_pSocket->Send(byBuff, iOffset);
+
+	s_bEnabled = false; // bir sonraki toggle artık popup açsın
 }
 
 bool CUIAutoLootDlg::ReceiveMessage(CN3UIBase* pSender, uint32_t dwMsg)
@@ -139,6 +180,11 @@ bool CUIAutoLootDlg::ReceiveMessage(CN3UIBase* pSender, uint32_t dwMsg)
 
 	if (dwMsg == UIMSG_BUTTON_CLICK)
 	{
+		CLogWriter::Write("AutoLootDlg::ReceiveMessage CLICK sender=%s",
+			pSender == m_pBtnUnique ? "unique" : pSender == m_pBtnOk ? "ok"
+			: pSender == m_pBtnCancel									? "cancel"
+																		: "other");
+
 		if (pSender == m_pBtnUnique)
 		{
 			// Toggle the unique-only flag (stay open).
@@ -165,6 +211,7 @@ bool CUIAutoLootDlg::ReceiveMessage(CN3UIBase* pSender, uint32_t dwMsg)
 
 bool CUIAutoLootDlg::OnKeyPress(int iKey)
 {
+	CLogWriter::Write("AutoLootDlg::OnKeyPress key=%d visible=%d", iKey, (int) IsVisible());
 	switch (iKey)
 	{
 		case DIK_RETURN:

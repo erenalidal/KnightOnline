@@ -59,6 +59,7 @@ protected:
 	int m_iCompLength;        // 현재 조합중인 글자의 byte수 0이면 조합중이 아니다.
 	size_t m_iMaxStrLen;      // 쓸수 있는 글씨의 최대 숫자
 	std::string m_szPassword; // password buffer
+	bool m_bNumberOnly = false; // true ise sadece rakam kabul et (macOS native edit'ten gelen harfleri ele)
 
 	CN3SndObj* m_pSnd_Typing; // 타이핑 할 때 나는 소리
 							  // Operations
@@ -85,6 +86,7 @@ public:
 
 	void SetCaretPos(size_t nPos);                          //몇번째 바이트에 있는지 설정한다.
 	void SetMaxString(size_t nMax);                         // 최대 글씨 수를 정해준다.
+	void SetNumberOnly(bool b) { m_bNumberOnly = b; }       // sadece rakam girişine izin ver
 
 protected:
 	BOOL IsHangulMiddleByte(const char* lpszStr, int iPos); // 한글의 2번째 바이트 글자인가?
