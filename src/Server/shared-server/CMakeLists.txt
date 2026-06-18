@@ -18,6 +18,8 @@ add_library(shared-server STATIC
   logger.cpp
   logger.h
   My_3DStruct.h
+  InterprocessMutex.cpp
+  InterprocessMutex.h
   N3ShapeMgr.cpp
   N3ShapeMgr.h
   pch.h

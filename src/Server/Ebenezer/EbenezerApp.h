@@ -17,6 +17,7 @@
 
 #include <shared/Ini.h>
 #include <shared-server/AppThread.h>
+#include <shared-server/InterprocessMutex.h>
 #include <shared-server/SharedMemoryBlock.h>
 #include <shared-server/SharedMemoryQueue.h>
 #include <shared-server/STLMap.h>
@@ -237,6 +238,12 @@ public:
 	SharedMemoryQueue m_ItemLoggerSendQ;
 
 	SharedMemoryBlock m_UserDataBlock;
+
+	// GÜVENLIK (#23 M7): Aujard'ın save'i (UpdateUser + UpdateWarehouseData) ile WarehouseProcess
+	// envanter<->warehouse<->bank mutasyonunu çapraz-process atomik yapan named mutex.
+	// removeStaleFirst=true: Ebenezer restart sırasında Aujard'dan ÖNCE başlar; crash sonrası kilitli
+	// kalmış stale named mutex'i (POSIX sem) burada temizleyip taze oluşturur. Aujard false ile bağlanır.
+	InterprocessMutex m_UserDataLock { "KNIGHT_USERDATA_LOCK", /*removeStaleFirst*/ true };
 
 	uint32_t m_ServerOffset;
 

@@ -7,6 +7,7 @@
 #include "Define.h"
 
 #include <shared-server/AppThread.h>
+#include <shared-server/InterprocessMutex.h>
 #include <shared-server/logger.h>
 #include <shared-server/SharedMemoryBlock.h>
 #include <shared-server/SharedMemoryQueue.h>
@@ -174,6 +175,10 @@ protected:
 	CDBAgent _dbAgent;
 	SharedMemoryBlock _userDataBlock;
 
+	// GÜVENLIK (#23 M7): Ebenezer WarehouseProcess ile bu sürecin save'i (UpdateUser +
+	// UpdateWarehouseData) çapraz-process atomik olsun diye named mutex.
+	InterprocessMutex _userDataLock { "KNIGHT_USERDATA_LOCK" };
+
 	int _serverId        = 0;
 	int _zoneId          = 0;
 
@@ -194,7 +199,11 @@ protected:
 	/// \param user reference to user object
 	/// \param saveType one of: UPDATE_LOGOUT, UPDATE_ALL_SAVE, UPDATE_PACKET_SAVE
 	/// \see UserDataSave(), HandleUserLogout()
-	bool HandleUserUpdate(int userId, const _USER_DATA& user, uint8_t saveType);
+	/// \param callerHoldsLock true ise çağıran KNIGHT_USERDATA_LOCK'u zaten tutuyordur (named mutex
+	///        recursive DEĞİL — UserDataSave snapshot'ı kilit altında uygulayıp burada tekrar
+	///        kilitlememek için). Bkz. GÜVENLIK (#23 M7).
+	bool HandleUserUpdate(int userId, const _USER_DATA& user, uint8_t saveType,
+		bool callerHoldsLock = false);
 
 	/// \returns The application's ini config path.
 	std::filesystem::path ConfigPath() const override;

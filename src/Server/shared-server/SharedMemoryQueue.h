@@ -22,7 +22,10 @@ class SharedMemoryQueue
 public:
 	// 512 → 1024: logout'ta güncel envanter (42 slot, ~691B) Aujard'a gönderiliyor (item kaybı
 	// düzeltmesi). Eski 512 sınırı paketi reddediyordu (SMQ_PKTSIZEOVER). Bkz. User::LogOut.
-	static constexpr uint32_t MAX_MSG_SIZE = 1024;
+	// 1024 → 4096 (GÜVENLIK #23 M7): periyodik/logout save mesajına envanterle BİRLİKTE depo
+	// (192 slot, ~3KB) + bank atomik snapshot olarak ekleniyor (torn-save/cross-table dupe TAM fix).
+	// Böylece Aujard envanter+depo'yu AYNI andan tutarlı kesit olarak kaydeder, canlı okuma karışmaz.
+	static constexpr uint32_t MAX_MSG_SIZE = 4096;
 	static constexpr uint32_t MAX_NUM_MSG  = 4096;
 
 	bool IsOpen() const

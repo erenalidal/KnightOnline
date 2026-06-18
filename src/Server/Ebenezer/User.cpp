@@ -1497,8 +1497,9 @@ int CUser::RepairAllItems()
 void CUser::UserDataSaveToAgent()
 {
 	int sendIndex = 0, retvalue = 0;
-	// Periyodik kayıta güncel envanter de eklendiğinden buffer büyütüldü (256→1024, ~691B item).
-	char sendBuffer[1024] {};
+	// Periyodik kayıta güncel envanter + depo da eklendiğinden buffer büyütüldü
+	// (envanter 42*16 + depo 192*16 + bank + başlık ≈ 3.8KB). Bkz. SMQ MAX_MSG_SIZE=4096.
+	char sendBuffer[4096] {};
 
 	if (strlen(m_pUserData->m_id) == 0 || strlen(m_pUserData->m_Accountid) == 0)
 		return;
@@ -1508,14 +1509,27 @@ void CUser::UserDataSaveToAgent()
 	SetString2(sendBuffer, m_pUserData->m_Accountid, sendIndex);
 	SetString2(sendBuffer, m_pUserData->m_id, sendIndex);
 
-	// PERİYODİK ENVANTER KAYDI (crash veri güvenliği): Aujard yalnızca login'de DB'den item okur;
-	// periyodik UserDataSave eskiden o STALE kopyayı yazıyordu (oturum-içi yeni item'lar DB'den
-	// silinebiliyordu). Çözüm: GÜNCEL envanteri de gönder (logout ile birebir format: flag +
-	// 42 slot). Aujard bunu UserData'ya yazıp UpdateUser ile kaydeder. flag=0 (oyun-dışı) → dokunma.
+	// PERİYODİK ENVANTER+DEPO KAYDI (crash veri güvenliği + #23 M7 TAM dupe fix):
+	// Aujard yalnızca login'de DB'den item okur; periyodik UserDataSave eskiden o STALE kopyayı
+	// yazıyordu (oturum-içi yeni item'lar DB'den silinebiliyordu). Ayrıca eskiden Aujard envanteri
+	// bu mesaj snapshot'ından (T1=gönderim anı), depo+bank'ı ise CANLI (T3=save anı) okuyordu →
+	// arada bir warehouse-op olursa item iki tabloda (dupe) ya da hiç (kayıp). ÇÖZÜM: envanter+depo
+	// +bank'ı AYNI anda, mutex altında atomik snapshot al ve hepsini gönder; Aujard üçünü birden
+	// UserData'ya yazıp tek tutarlı kesit olarak kaydeder. flag=0 (oyun-dışı) → dokunma.
 	bool bInGame = (GetState() == CONNECTION_STATE_GAMESTART);
 	SetByte(sendBuffer, bInGame ? 1 : 0, sendIndex);
 	if (bInGame)
 	{
+		// GÜVENLIK (#23 M7): snapshot'ı WarehouseProcess mutasyonu ile çapraz-process atomik al.
+		InterprocessMutexGuard userDataGuard(m_pMain->m_UserDataLock, 3000);
+		if (!userDataGuard.Locked())
+		{
+			spdlog::error("User::UserDataSaveToAgent: KNIGHT_USERDATA_LOCK timeout (3000ms), "
+						  "snapshot taken without lock [charId={}]",
+				m_pUserData->m_id);
+		}
+
+		// envanter (42 slot)
 		for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
 		{
 			const _ITEM_DATA& item = m_pUserData->m_sItemArray[i];
@@ -1523,6 +1537,17 @@ void CUser::UserDataSaveToAgent()
 			SetShort(sendBuffer, item.sDuration, sendIndex);
 			SetShort(sendBuffer, item.sCount, sendIndex);
 			SetInt64(sendBuffer, item.nSerialNum, sendIndex);
+		}
+
+		// bank gold + depo (192 slot) — envanterle AYNI kilitli kesitten
+		SetDWORD(sendBuffer, m_pUserData->m_iBank, sendIndex);
+		for (int i = 0; i < WAREHOUSE_MAX; i++)
+		{
+			const _WAREHOUSE_ITEM_DATA& witem = m_pUserData->m_sWarehouseArray[i];
+			SetDWORD(sendBuffer, witem.nNum, sendIndex);
+			SetShort(sendBuffer, witem.sDuration, sendIndex);
+			SetShort(sendBuffer, witem.sCount, sendIndex);
+			SetInt64(sendBuffer, witem.nSerialNum, sendIndex);
 		}
 	}
 
@@ -8850,6 +8875,21 @@ void CUser::WarehouseProcess(char* pBuf)
 			m_pUserData->m_id, _socketId, m_bResHpType, m_pUserData->m_sHp,
 			static_cast<int32_t>(m_pUserData->m_curx), static_cast<int32_t>(m_pUserData->m_curz));
 		return;
+	}
+
+	// GÜVENLIK (#23 M7): envanter<->warehouse<->bank-gold mutasyonu, Aujard'ın iki-tablo save'i
+	// (UpdateUser + UpdateWarehouseData) ile çapraz-process atomik olmalı. Aksi halde save iki
+	// okuması arasında bu op çalışırsa item tek tabloda yok / iki tabloda çift olur (torn save).
+	// Guard fonksiyon gövdesinin kalanını (tüm switch case'leri, başarı yolu ve fail_return'u) sarar
+	// — guard fonksiyon dönene kadar yaşar, dtor kilidi serbest bırakır. WAREHOUSE_OPEN salt-okuma
+	// olsa da kilit altında okumak client'a tutarlı kesit verir (zararsız, kısa).
+	// timeout 3000ms; alınamazsa (Aujard crash/asılı) deadlock'a girme — logla ve YİNE DE devam et.
+	InterprocessMutexGuard userDataGuard(m_pMain->m_UserDataLock, 3000);
+	if (!userDataGuard.Locked())
+	{
+		spdlog::error("User::WarehouseProcess: KNIGHT_USERDATA_LOCK timeout (3000ms), proceeding "
+					  "without lock [charId={} socketId={}]",
+			m_pUserData->m_id, _socketId);
 	}
 
 	if (m_sExchangeUser != -1)
