@@ -215,6 +215,9 @@ public:
 	int16_t m_sWarpGateGroup                 = -1;    // son açılan warp gate'in grup ID'si (-1 = açık liste yok)
 	float m_fWarpGateX                       = 0.0f;  // o gate'in konumu
 	float m_fWarpGateZ                       = 0.0f;
+	// GÜVENLIK (#23 M4): melee combo başlangıç zamanı — bedava follow-up skill'leri (data1>1) sadece
+	// yakın zamanda gerçek combo başı atıldıysa kabul et (data1=2 spam ile mana atlama engeli).
+	double m_fComboStartTime                 = 0.0;
 	uint8_t m_byKnightsRank                  = 0;
 	uint8_t m_byPersonalRank                 = 0;
 

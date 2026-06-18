@@ -1670,6 +1670,33 @@ void CUser::MoveProcess(char* pBuf)
 	if (!pMap->IsValidPosition(real_x, real_z))
 		return;
 
+	// GÜVENLIK (#23 C4): teleport/koordinat-injection clamp. MoveProcess client koordinatlarını
+	// doğrudan kabul ediyor; tek koruma saat-farkı (SpeedHackTime) idi → teleport'u yakalamıyordu.
+	// İki ardışık move paketi arasındaki mesafe (önceki hedef m_fWill -> yeni real) fiziksel olarak
+	// imkansız bir sıçramaysa paket reddedilir (disconnect yok). Eşik GEVŞEK tutuldu (legit koşu +
+	// lag/batch çok altında kalır); gerçek mesafeler loglanıp sonra sıkılaştırılabilir.
+	// m_fWill_x == 0 → henüz init olmamış (spawn/zone-change öncesi), kontrol atlanır.
+	if (speed != 0 && m_fWill_x > 0.0f && m_fWill_z > 0.0f)
+	{
+		float dx       = real_x - m_fWill_x;
+		float dz       = real_z - m_fWill_z;
+		float distSq   = dx * dx + dz * dz;
+
+		// >300 birim/paket = imkansız (reddet). 100-300 arası = şüpheli (logla, kabul et — tuning için).
+		if (distSq > 300.0f * 300.0f)
+		{
+			spdlog::warn("User::MoveProcess: teleport reddedildi [charId={} dist={:.0f} "
+						 "from=({:.0f},{:.0f}) to=({:.0f},{:.0f})]",
+				m_pUserData->m_id, sqrtf(distSq), m_fWill_x, m_fWill_z, real_x, real_z);
+			return;
+		}
+		if (distSq > 100.0f * 100.0f)
+		{
+			spdlog::debug("User::MoveProcess: büyük adım [charId={} dist={:.0f}]",
+				m_pUserData->m_id, sqrtf(distSq));
+		}
+	}
+
 	//	real_y = pMap->GetHeight(	real_x, real_y, real_z );
 
 	//	if( speed > 60 ) {	// client 에서 이수치보다 크게 보낼때가 많음...

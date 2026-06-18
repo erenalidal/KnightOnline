@@ -849,11 +849,24 @@ model::Magic* CMagicProcess::IsAvailable(
 				return pTable; // Do not reduce MP/SP when flying effect is not 0.
 			}
 
+			// GÜVENLIK (#23 M4): combo follow-up (data1>1) mana harcamaz — ama server combo'nun
+			// gerçekten başladığını takip etmezse değiştirilmiş client data1=2 spam'leyip bedava
+			// skill atar. Bedava follow-up'ı yalnızca son COMBO_WINDOW sn içinde gerçek bir combo
+			// başı (data1<=1) atıldıysa kabul et; aksi halde fall-through ile normal mana düşülür.
+			constexpr double COMBO_WINDOW = 4.0;
 			if (pTable->Type1 == 1 && data1 > 1)
 			{
-				m_bMagicState = MAGIC_STATE_NONE;
-				return pTable; // Do not reduce MP/SP when combo number is higher than 0.
+				if (m_pSrcUser->m_fComboStartTime != 0.0
+					&& (TimeGet() - m_pSrcUser->m_fComboStartTime) < COMBO_WINDOW)
+				{
+					m_bMagicState = MAGIC_STATE_NONE;
+					return pTable; // Geçerli combo: MP/SP düşme.
+				}
+				// Combo başı yok/süresi geçmiş → bedava-skill exploit; normal mana düşülsün (return etme).
 			}
+			// Gerçek combo başı: zamanı kaydet (sonraki follow-up'lar için pencere açılır).
+			if (pTable->Type1 == 1 && data1 <= 1)
+				m_pSrcUser->m_fComboStartTime = TimeGet();
 
 			if (pTable->ManaCost > m_pSrcUser->m_pUserData->m_sMp)
 				goto fail_return;
