@@ -296,6 +296,9 @@ void CGameProcMain::Init()
 	g_szCmdMsg[i++] = "monsummon"; // CMD_MONSUMMON
 	g_szCmdMsg[i++] = "monspawn";  // CMD_MONSPAWN
 	g_szCmdMsg[i++] = "repair";    // CMD_REPAIR
+	g_szCmdMsg[i++] = "exp_event";  // CMD_EXPEVENT
+	g_szCmdMsg[i++] = "coin_event"; // CMD_COINEVENT
+	g_szCmdMsg[i++] = "drop_event"; // CMD_DROPEVENT
 
 	s_SndMgr.ReleaseStreamObj(&s_pSnd_BGM);
 

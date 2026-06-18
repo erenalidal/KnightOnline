@@ -1008,11 +1008,12 @@ void OperationMessage::GiveItem()
 // boyunca tüm oyunculara x2 exp. Yüzde 100 ya da dakika<=0 → kapatır. Süre dolunca otomatik normal.
 void OperationMessage::ExpEvent()
 {
-	if (_main == nullptr || GetArgCount() < 1)
+	if (_main == nullptr)
 		return;
 
-	int rate    = ParseInt(0);
-	int minutes = (GetArgCount() >= 2) ? ParseInt(1) : 0;
+	// Argümansız (GM2 menüsünden tek tık): varsayılan x2 EXP, 60 dakika.
+	int rate    = (GetArgCount() >= 1) ? ParseInt(0) : 200;
+	int minutes = (GetArgCount() >= 2) ? ParseInt(1) : 60;
 
 	if (rate < 0)
 		rate = 0;
@@ -1137,11 +1138,12 @@ void OperationMessage::Repair()
 
 void OperationMessage::EventRateCmd(uint8_t byType, const char* label)
 {
-	if (_main == nullptr || GetArgCount() < 1)
+	if (_main == nullptr)
 		return;
 
-	int rate    = ParseInt(0);
-	int minutes = (GetArgCount() >= 2) ? ParseInt(1) : 0;
+	// Argümansız (GM2 menüsünden tek tık): varsayılan x2, 60 dakika.
+	int rate    = (GetArgCount() >= 1) ? ParseInt(0) : 200;
+	int minutes = (GetArgCount() >= 2) ? ParseInt(1) : 60;
 	if (rate < 0)
 		rate = 0;
 	if (rate > 10000)

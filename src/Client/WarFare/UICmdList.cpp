@@ -370,7 +370,8 @@ bool CUICmdList::CreateCategoryList()
 	{
 		// macOS port komutları ARTIK ayrı "GM2" kategorisinde (orijinal GM listesi taşıyordu).
 		// İsimleri g_szCmdMsg'de kodda set; seçilince '+godmode'/'+autoloot'/... (GM prefix '+').
-		for (e_ChatCmd cmd : { CMD_GODMODE, CMD_AUTOLOOT, CMD_MONSUMMON, CMD_MONSPAWN, CMD_REPAIR })
+		for (e_ChatCmd cmd : { CMD_GODMODE, CMD_AUTOLOOT, CMD_MONSUMMON, CMD_MONSPAWN, CMD_REPAIR,
+				 CMD_EXPEVENT, CMD_COINEVENT, CMD_DROPEVENT })
 		{
 			CommandInfo info;
 			info.ResourceID = IDS_CMD_VISIBLE; // tooltip için geçerli bir res (içerik önemsiz)

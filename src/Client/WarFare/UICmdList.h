@@ -110,6 +110,9 @@ enum e_ChatCmd : uint8_t
 	CMD_MONSUMMON, // +monsummon (tek-seferlik mob — ölünce respawn yok)
 	CMD_MONSPAWN,  // +monspawn (respawn'lı mob — spawn point gibi)
 	CMD_REPAIR,    // +repair (tüm itemları onar)
+	CMD_EXPEVENT,  // +exp_event (argümansız: x2 EXP 60dk)
+	CMD_COINEVENT, // +coin_event (argümansız: x2 para 60dk)
+	CMD_DROPEVENT, // +drop_event (argümansız: x2 drop 60dk)
 
 	CMD_COUNT,
 	CMD_UNKNOWN
