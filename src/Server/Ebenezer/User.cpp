@@ -10431,6 +10431,11 @@ bool CUser::WarpListObjectEvent(int16_t objectIndex, int16_t /*npcId*/)
 	if (m_pUserData->m_bNation != m_pUserData->m_bZone && m_pUserData->m_bZone <= ZONE_ELMORAD)
 		return false;
 
+	// GÜVENLIK (#23 M5): warp gate'e yakınlık kontrolü yoktu → herhangi bir yerden warp listesi
+	// açıp teleport/combat-escape. Anvil (SendItemUpgradeRequest) ile aynı mesafe kontrolü.
+	if (GetDistanceSquared2D(pEvent->fPosX, pEvent->fPosZ) > MAX_INTERACTION_RANGE_SQUARED)
+		return false;
+
 	if (!GetWarpList(pEvent->sControlNpcID))
 		return false;
 
