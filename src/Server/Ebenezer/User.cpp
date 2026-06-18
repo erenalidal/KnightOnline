@@ -9956,6 +9956,14 @@ void CUser::SelectWarpList(char* pBuf)
 	if (pWarp == nullptr)
 		return;
 
+	// GÜVENLIK (#23 M5): client herhangi bir yerden WIZ_WARP_LIST yollayıp teleport/combat-escape
+	// yapamaz. Warpid'in en son açtığı gate grubuna ait olması (warpid/10 == grup) ve oyuncunun
+	// hâlâ o gate'e yakın olması gerekir. Liste açılmadan veya gate'ten uzaklaşınca warp reddedilir.
+	if (m_sWarpGateGroup < 0
+		|| (warpid / 10) != m_sWarpGateGroup
+		|| GetDistanceSquared2D(m_fWarpGateX, m_fWarpGateZ) > MAX_INTERACTION_RANGE_SQUARED)
+		return;
+
 	// We cannot use warp gates when invading.
 	if (m_pUserData->m_bNation != pWarp->sZone && pWarp->sZone <= ZONE_ELMORAD)
 		return;
@@ -9997,6 +10005,9 @@ void CUser::SelectWarpList(char* pBuf)
 		SetByte(sendBuffer, 1, sendIndex);
 		Send(sendBuffer, sendIndex);
 	}
+	// GÜVENLIK (#23 M5): warp tüketildi — liste state'ini sıfırla (tekrar için gate listesi yeniden açılmalı).
+	m_sWarpGateGroup = -1;
+
 	//
 	ZoneChange(pWarp->sZone, pWarp->fX + rx, pWarp->fZ + rz);
 
@@ -10438,6 +10449,11 @@ bool CUser::WarpListObjectEvent(int16_t objectIndex, int16_t /*npcId*/)
 
 	if (!GetWarpList(pEvent->sControlNpcID))
 		return false;
+
+	// GÜVENLIK (#23 M5): SelectWarpList'te tekrar doğrulamak için hangi gate'te liste açtığını kaydet.
+	m_sWarpGateGroup = pEvent->sControlNpcID;
+	m_fWarpGateX     = pEvent->fPosX;
+	m_fWarpGateZ     = pEvent->fPosZ;
 
 	return true;
 }

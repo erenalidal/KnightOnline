@@ -421,10 +421,11 @@ bool AujardApp::HandleUserUpdate(int userId, const _USER_DATA& user, uint8_t sav
 	int updateWarehouseResult = 0, updateUserResult = 0, retryCount = 0, maxRetry = 10;
 
 	// attempt updates
-	updateUserResult = _dbAgent.UpdateUser(user.m_id, userId, saveType);
-
-	std::this_thread::sleep_for(sleepTime);
-
+	// GÜVENLIK (#23 M7 mitigation): UpdateUser (gold/exp) ve UpdateWarehouseData (warehouse)
+	// ikisi de canlı paylaşımlı UserData[userId]'i okuyor; aralarında Ebenezer bir warehouse-op
+	// yazarsa torn save (item yok/çift). Aradaki 10ms sleep yarış penceresini büyütüyordu —
+	// kaldırıldı (pencere ~1000x daraldı). TAM fix çapraz-process kilit ister (mimari iş).
+	updateUserResult      = _dbAgent.UpdateUser(user.m_id, userId, saveType);
 	updateWarehouseResult = _dbAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
 
 	// TODO:  Seems like the following two loops could/should just be combined

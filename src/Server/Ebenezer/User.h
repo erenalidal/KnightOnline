@@ -211,6 +211,10 @@ public:
 	bool m_bGodMode                          = false; // +godmode: GM hasar+aggro toggle durumu
 	int32_t m_nAutoLootMinValue              = 0;     // autoloot filtre: item SellPrice >= bu (0=hepsi). Çöp filtresi.
 	bool m_bAutoLootUniqueOnly               = false; // autoloot filtre: sadece unique/yüksek-grade itemlar (değerden bağımsız)
+	// GÜVENLIK (#23 M5): warp listesini en son hangi gate'te açtı — SelectWarpList proximity doğrulaması için.
+	int16_t m_sWarpGateGroup                 = -1;    // son açılan warp gate'in grup ID'si (-1 = açık liste yok)
+	float m_fWarpGateX                       = 0.0f;  // o gate'in konumu
+	float m_fWarpGateZ                       = 0.0f;
 	uint8_t m_byKnightsRank                  = 0;
 	uint8_t m_byPersonalRank                 = 0;
 
