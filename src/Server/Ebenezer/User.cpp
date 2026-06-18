@@ -745,7 +745,10 @@ void CUser::Parsing(int len, char* pData)
 			break;
 
 		case WIZ_KICKOUT:
-			KickOut(pData + index);
+			// GÜVENLIK (#23 M3): yetki gate yoktu → herhangi bir oyuncu herkesi disconnect edebiliyordu
+			// (hedefli/toplu DoS, PvP'de rakibi atma). WIZ_WARP gibi MANAGER gerekli.
+			if (m_pUserData->m_bAuthority == AUTHORITY_MANAGER)
+				KickOut(pData + index);
 			break;
 
 		case WIZ_CLIENT_EVENT:
@@ -6794,6 +6797,10 @@ void CUser::ExchangeAdd(char* pBuf)
 	}
 	else if (m_MirrorItem[pos].nNum == itemid)
 	{
+		// GÜVENLIK (#23 M1): negatif count → stack şişirme dupe (GOLD branch'i koruyor, item değil).
+		if (count <= 0)
+			goto add_fail;
+
 		if (m_MirrorItem[pos].sCount < count)
 			goto add_fail;
 
@@ -8850,10 +8857,24 @@ void CUser::WarehouseProcess(char* pBuf)
 
 	reference_pos = 24 * page;
 
+	// GÜVENLIK (#23 C1/C2): client'tan gelen slot index'leri (GetByte 0-255) ve page
+	// sınırsızdı → m_sItemArray/m_sWarehouseArray üzerinde OOB read/write, item materialize.
+	// srcpos/destpos envanter (<HAVE_MAX) ya da depo-sayfa-içi index olabiliyor; üst sınır +
+	// page (reference_pos<WAREHOUSE_MAX) kapatılıyor. Depo-offset uçları her branch'te ayrıca >=
+	// ile kontrol ediliyor.
+	if (srcpos >= HAVE_MAX || destpos >= HAVE_MAX)
+		goto fail_return;
+	if (reference_pos < 0 || reference_pos >= WAREHOUSE_MAX)
+		goto fail_return;
+
 	switch (command)
 	{
 		case WAREHOUSE_INPUT:
 			count = GetDWORD(pBuf, index);
+
+			// GÜVENLIK (#23 M2): negatif count → gold mint / stack şişirme. Reddet.
+			if (count <= 0)
+				goto fail_return;
 
 			if (itemid == ITEM_GOLD)
 			{
@@ -8871,7 +8892,7 @@ void CUser::WarehouseProcess(char* pBuf)
 			if (m_pUserData->m_sItemArray[SLOT_MAX + srcpos].nNum != itemid)
 				goto fail_return;
 
-			if (reference_pos + destpos > WAREHOUSE_MAX)
+			if (reference_pos + destpos >= WAREHOUSE_MAX) // off-by-one: == WAREHOUSE_MAX de OOB
 				goto fail_return;
 
 			if (m_pUserData->m_sWarehouseArray[reference_pos + destpos].nNum
@@ -8926,6 +8947,10 @@ void CUser::WarehouseProcess(char* pBuf)
 		case WAREHOUSE_OUTPUT:
 			count = GetDWORD(pBuf, index);
 
+			// GÜVENLIK (#23 M2): negatif count → gold mint / stack şişirme. Reddet.
+			if (count <= 0)
+				goto fail_return;
+
 			if (itemid == ITEM_GOLD)
 			{
 				if ((m_pUserData->m_iGold + count) > 2'100'000'000)
@@ -8952,7 +8977,7 @@ void CUser::WarehouseProcess(char* pBuf)
 					goto fail_return;
 			}
 
-			if ((reference_pos + srcpos) > WAREHOUSE_MAX)
+			if ((reference_pos + srcpos) >= WAREHOUSE_MAX) // off-by-one fix
 				goto fail_return;
 
 			if (m_pUserData->m_sWarehouseArray[reference_pos + srcpos].nNum != itemid)
@@ -9011,7 +9036,8 @@ void CUser::WarehouseProcess(char* pBuf)
 			break;
 
 		case WAREHOUSE_MOVE:
-			if ((reference_pos + srcpos) > WAREHOUSE_MAX)
+			// GÜVENLIK (#23 C2): hem srcpos hem destpos depo-offset'i — ikisi de sınırlanmalı (>=).
+			if ((reference_pos + srcpos) >= WAREHOUSE_MAX || (reference_pos + destpos) >= WAREHOUSE_MAX)
 				goto fail_return;
 
 			if (m_pUserData->m_sWarehouseArray[reference_pos + srcpos].nNum != itemid)
@@ -10898,9 +10924,15 @@ void CUser::MarketBBSRegister(char* pBuf)
 				m_pMain->m_sBuyID[i] = _socketId;
 
 				title_len            = GetShort(pBuf, index);
+				// GÜVENLIK (#23 M6): kontrolsüz uzunluk → sabit buffer'a memcpy taşması (server crash/
+				// corruption, herhangi bir oyuncu tetikleyebilir). Sınır dışıysa iptal.
+				if (title_len < 0 || title_len >= MAX_BBS_TITLE)
+					return;
 				GetString(m_pMain->m_strBuyTitle[i], pBuf, title_len, index);
 
 				message_len = GetShort(pBuf, index);
+				if (message_len < 0 || message_len >= MAX_BBS_MESSAGE)
+					return;
 				GetString(m_pMain->m_strBuyMessage[i], pBuf, message_len, index);
 
 				m_pMain->m_iBuyPrice[i]     = GetDWORD(pBuf, index);
@@ -10918,9 +10950,14 @@ void CUser::MarketBBSRegister(char* pBuf)
 				m_pMain->m_sSellID[i] = _socketId;
 
 				title_len             = GetShort(pBuf, index);
+				// GÜVENLIK (#23 M6): kontrolsüz uzunluk → buffer taşması. Sınır dışıysa iptal.
+				if (title_len < 0 || title_len >= MAX_BBS_TITLE)
+					return;
 				GetString(m_pMain->m_strSellTitle[i], pBuf, title_len, index);
 
 				message_len = GetShort(pBuf, index);
+				if (message_len < 0 || message_len >= MAX_BBS_MESSAGE)
+					return;
 				GetString(m_pMain->m_strSellMessage[i], pBuf, message_len, index);
 
 				m_pMain->m_iSellPrice[i]     = GetDWORD(pBuf, index);
