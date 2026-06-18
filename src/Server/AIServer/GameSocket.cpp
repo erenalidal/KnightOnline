@@ -426,6 +426,8 @@ void CGameSocket::RecvUserInOut(char* pBuf)
 	bType = GetByte(pBuf, index);
 	uid   = GetShort(pBuf, index);
 	len   = GetShort(pBuf, index);
+	if (len <= 0 || len > MAX_ID_SIZE) // GÜVENLIK (#23 C3): strName[21] stack-smash önle
+		return;
 	GetString(strName, pBuf, len, index);
 	fX = GetFloat(pBuf, index);
 	fZ = GetFloat(pBuf, index);
@@ -740,15 +742,15 @@ void CGameSocket::RecvUserLogOut(char* pBuf)
 
 	uid = GetShort(pBuf, index);
 	len = GetShort(pBuf, index);
-	GetString(strName, pBuf, len, index);
-
+	// GÜVENLIK (#23 C3): kontrol GetString'den SONRAYDI (çok geç, taşma olmuştu) ve return
+	// yorumdaydı → strName[21] stack-smash. Artık GetString ÖNCESİ ve gerçekten return.
 	if (len > MAX_ID_SIZE || len <= 0)
 	{
-		spdlog::warn("GameSocket::RecvUserLogOut: character name length out of bounds [userId={} "
-					 "charId={} len={}]",
-			uid, strName, len);
-		//return;
+		spdlog::warn("GameSocket::RecvUserLogOut: character name length out of bounds [userId={} len={}]",
+			uid, len);
+		return;
 	}
+	GetString(strName, pBuf, len, index);
 
 	// User List에서 User정보,, 삭제...
 	CUser* pUser = m_pMain->GetUserPtr(uid);
@@ -982,6 +984,8 @@ void CGameSocket::RecvUserInfoAllData(char* pBuf)
 
 		uid = GetShort(pBuf, index);
 		len = GetShort(pBuf, index);
+		if (len <= 0 || len > MAX_ID_SIZE) // GÜVENLIK (#23 C3): strName stack-smash önle
+			return;
 		GetString(strName, pBuf, len, index);
 		bZone       = GetByte(pBuf, index);
 		sZoneIndex  = GetShort(pBuf, index);
