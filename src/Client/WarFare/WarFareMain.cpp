@@ -90,8 +90,11 @@ int APIENTRY WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE /*hPrevInstanc
 	CN3Base::s_Options.iUseShadow  = ini.GetInt("Shadow", "Use", 1);
 
 	// NOTE: what is the screen resolution?
-	CN3Base::s_Options.iViewWidth  = ini.GetInt("ViewPort", "Width", 1024);
-	CN3Base::s_Options.iViewHeight = ini.GetInt("ViewPort", "Height", 768);
+	// macOS: pencere varsayılanı 1440x900 (eskiden 1024x768 çok küçük, 1600x1200 ekrana sığmıyor;
+	// 1512x982 mantıksal ekrana sığan en büyük makul boyut). 1440 "tanınan" genişlik listesinde
+	// olmadığı için aşağıdaki height-zorlaması atlanır → 900 korunur. Option.ini override eder.
+	CN3Base::s_Options.iViewWidth  = ini.GetInt("ViewPort", "Width", 1440);
+	CN3Base::s_Options.iViewHeight = ini.GetInt("ViewPort", "Height", 900);
 
 	if (CN3Base::s_Options.iViewWidth == 1024 || CN3Base::s_Options.iViewWidth == 1366)
 		CN3Base::s_Options.iViewHeight = 768;
