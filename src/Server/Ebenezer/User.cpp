@@ -1520,14 +1520,12 @@ void CUser::UserDataSaveToAgent()
 	SetByte(sendBuffer, bInGame ? 1 : 0, sendIndex);
 	if (bInGame)
 	{
-		// GÜVENLIK (#23 M7): snapshot'ı WarehouseProcess mutasyonu ile çapraz-process atomik al.
-		InterprocessMutexGuard userDataGuard(m_pMain->m_UserDataLock, 3000);
-		if (!userDataGuard.Locked())
-		{
-			spdlog::error("User::UserDataSaveToAgent: KNIGHT_USERDATA_LOCK timeout (3000ms), "
-						  "snapshot taken without lock [charId={}]",
-				m_pUserData->m_id);
-		}
+		// GÜVENLIK (#23 M7 v2): snapshot'ı sunucunun MEVCUT logic-mutex'i altında al (named mutex
+		// yerine). WarehouseProcess (ve tüm paket-logic'i) zaten bu mutex altında çalışır → snapshot
+		// asla yarım (mid-warehouse-op) olmaz. recursive_mutex: timer-thread'inden çağrılınca kilidi
+		// alır; paket-thread'inden (WIZ_DATASAVE, zaten tutuyor) çağrılınca recursive re-lock — ikisi
+		// de güvenli. Yeni global kilit yok; cross-process kilit gerekmez (Aujard artık shared okumuyor).
+		std::lock_guard<std::recursive_mutex> userDataGuard(_socketManager->GetMutex());
 
 		// envanter (42 slot)
 		for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
@@ -8877,21 +8875,11 @@ void CUser::WarehouseProcess(char* pBuf)
 		return;
 	}
 
-	// GÜVENLIK (#23 M7): envanter<->warehouse<->bank-gold mutasyonu, Aujard'ın iki-tablo save'i
-	// (UpdateUser + UpdateWarehouseData) ile çapraz-process atomik olmalı. Aksi halde save iki
-	// okuması arasında bu op çalışırsa item tek tabloda yok / iki tabloda çift olur (torn save).
-	// Guard fonksiyon gövdesinin kalanını (tüm switch case'leri, başarı yolu ve fail_return'u) sarar
-	// — guard fonksiyon dönene kadar yaşar, dtor kilidi serbest bırakır. WAREHOUSE_OPEN salt-okuma
-	// olsa da kilit altında okumak client'a tutarlı kesit verir (zararsız, kısa).
-	// timeout 3000ms; alınamazsa (Aujard crash/asılı) deadlock'a girme — logla ve YİNE DE devam et.
-	InterprocessMutexGuard userDataGuard(m_pMain->m_UserDataLock, 3000);
-	if (!userDataGuard.Locked())
-	{
-		spdlog::error("User::WarehouseProcess: KNIGHT_USERDATA_LOCK timeout (3000ms), proceeding "
-					  "without lock [charId={} socketId={}]",
-			m_pUserData->m_id, _socketId);
-	}
-
+	// GÜVENLIK (#23 M7 v2): envanter<->warehouse<->bank-gold mutasyonu zaten sunucunun logic-mutex'i
+	// altında çalışıyor (tüm paket-logic'i tek global recursive_mutex'ten geçer). Periyodik save
+	// snapshot'ı da (UserDataSaveToAgent) AYNI logic-mutex altında alınıyor → ikisi asla iç içe geçmez,
+	// tutarlı kesit garanti. Aujard ise snapshot'tan kaydediyor, shared'e dokunmuyor. Bu yüzden v1'deki
+	// ayrı cross-process named mutex KALDIRILDI (rollback + kilit + ölçek darboğazı gitti).
 	if (m_sExchangeUser != -1)
 		goto fail_return;
 

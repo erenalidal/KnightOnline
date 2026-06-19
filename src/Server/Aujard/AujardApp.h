@@ -7,7 +7,6 @@
 #include "Define.h"
 
 #include <shared-server/AppThread.h>
-#include <shared-server/InterprocessMutex.h>
 #include <shared-server/logger.h>
 #include <shared-server/SharedMemoryBlock.h>
 #include <shared-server/SharedMemoryQueue.h>
@@ -175,9 +174,8 @@ protected:
 	CDBAgent _dbAgent;
 	SharedMemoryBlock _userDataBlock;
 
-	// GÜVENLIK (#23 M7): Ebenezer WarehouseProcess ile bu sürecin save'i (UpdateUser +
-	// UpdateWarehouseData) çapraz-process atomik olsun diye named mutex.
-	InterprocessMutex _userDataLock { "KNIGHT_USERDATA_LOCK" };
+	// GÜVENLIK (#23 M7 v2): cross-process named mutex KALDIRILDI — Aujard artık shared belleğe
+	// yazmıyor, tutarlı snapshot'tan (mesajdan) kaydediyor; kilide gerek yok.
 
 	int _serverId        = 0;
 	int _zoneId          = 0;
@@ -199,11 +197,10 @@ protected:
 	/// \param user reference to user object
 	/// \param saveType one of: UPDATE_LOGOUT, UPDATE_ALL_SAVE, UPDATE_PACKET_SAVE
 	/// \see UserDataSave(), HandleUserLogout()
-	/// \param callerHoldsLock true ise çağıran KNIGHT_USERDATA_LOCK'u zaten tutuyordur (named mutex
-	///        recursive DEĞİL — UserDataSave snapshot'ı kilit altında uygulayıp burada tekrar
-	///        kilitlememek için). Bkz. GÜVENLIK (#23 M7).
-	bool HandleUserUpdate(int userId, const _USER_DATA& user, uint8_t saveType,
-		bool callerHoldsLock = false);
+	/// \note GÜVENLIK (#23 M7 v2): `user` periyodik save'de TUTARLI snapshot (UserDataSave LOCAL kopya),
+	///       logout/all-save'de canlı shared. UpdateUser/UpdateWarehouseData ondan okur; Aujard shared'e
+	///       yazmaz → cross-process kilit YOK.
+	bool HandleUserUpdate(int userId, const _USER_DATA& user, uint8_t saveType);
 
 	/// \returns The application's ini config path.
 	std::filesystem::path ConfigPath() const override;

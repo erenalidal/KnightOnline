@@ -415,70 +415,55 @@ bool AujardApp::HandleUserLogout(int userId, uint8_t saveType, bool forceLogout)
 	return success;
 }
 
-bool AujardApp::HandleUserUpdate(int userId, const _USER_DATA& user, uint8_t saveType,
-	bool callerHoldsLock)
+bool AujardApp::HandleUserUpdate(int userId, const _USER_DATA& user, uint8_t saveType)
 {
 	auto sleepTime            = 10ms;
 	int updateWarehouseResult = 0, updateUserResult = 0, retryCount = 0, maxRetry = 10;
 
-	// attempt updates
-	// GÜVENLIK (#23 M7): UpdateUser (gold/exp/envanter) ve UpdateWarehouseData (warehouse) ikisi de
-	// canlı paylaşımlı UserData[userId]'i AYRI anlarda okuyor; aralarında Ebenezer bir warehouse-op
-	// yazarsa torn save (item yok/çift). Bu iki-tablo okumasını Ebenezer WarehouseProcess ile çapraz
-	// -process atomik yapmak için named mutex altında topluyoruz. Böylece warehouse mutasyonu ile
-	// save'in iki okuması asla iç içe geçmez → her zaman tutarlı kesit.
-	// callerHoldsLock=true ise (UserDataSave snapshot'ı kilit altında uyguladı) tekrar kilitleme —
-	// named mutex recursive değil, double-lock deadlock olurdu.
+	// GÜVENLIK (#23 M7 v2): cross-process named mutex KALDIRILDI. Aujard artık shared belleğe
+	// yazmıyor; kalıcı veriyi `user` (UserDataSave'in kilit-altında aldığı TUTARLI snapshot,
+	// periyodik save'de) veya canlı UserData[userId] (logout/all-save'de, &user==shared) üzerinden
+	// DOĞRUDAN DB'ye yazıyor. UpdateUser/UpdateWarehouseData snapshot'tan okur → torn-save/dupe yok,
+	// geri-yazma olmadığı için rollback yok, kilit olmadığı için ölçek darboğazı yok.
+	// Versiyon (m_dwTime) yine UpdateUser/Warehouse içinde UserData[userId] üzerinde artar.
+	const _USER_DATA* snap = &user;
+
+	updateUserResult      = _dbAgent.UpdateUser(user.m_id, userId, saveType, snap);
+	updateWarehouseResult = _dbAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType, snap);
+
+	// TODO:  Seems like the following two loops could/should just be combined
+	// retry handling for update user/warehouse
+	for (retryCount = 0; !updateWarehouseResult || !updateUserResult; retryCount++)
 	{
-		// timeout 3000ms; alınamazsa (Ebenezer crash/asılı kalma senaryosu) deadlock'a girme,
-		// logla ve YİNE DE devam et — restart script /private/tmp/boost_interprocess'i temizler.
-		std::unique_ptr<InterprocessMutexGuard> guard;
-		if (!callerHoldsLock)
+		if (retryCount >= maxRetry)
 		{
-			guard = std::make_unique<InterprocessMutexGuard>(_userDataLock, 3000);
-			if (!guard->Locked())
-			{
-				spdlog::error("AujardApp::HandleUserUpdate: KNIGHT_USERDATA_LOCK timeout (3000ms), "
-							  "proceeding without lock [accountId={} charId={}]",
-					user.m_Accountid, user.m_id);
-			}
+			spdlog::error("AujardApp::HandleUserUpdate: UserData Save Error: [accountId={} "
+						  "charId={} (W:{},U:{})]",
+				user.m_Accountid, user.m_id, updateWarehouseResult, updateUserResult);
+			break;
+		}
+		// only retry the calls that fail - they're both updating using UserData[userId]->dwTime, so they should sync fine
+		if (!updateUserResult)
+		{
+			updateUserResult = _dbAgent.UpdateUser(user.m_id, userId, saveType, snap);
 		}
 
-		updateUserResult      = _dbAgent.UpdateUser(user.m_id, userId, saveType);
-		updateWarehouseResult = _dbAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
+		std::this_thread::sleep_for(sleepTime);
 
-		// TODO:  Seems like the following two loops could/should just be combined
-		// retry handling for update user/warehouse
-		for (retryCount = 0; !updateWarehouseResult || !updateUserResult; retryCount++)
+		if (!updateWarehouseResult)
 		{
-			if (retryCount >= maxRetry)
-			{
-				spdlog::error("AujardApp::HandleUserUpdate: UserData Save Error: [accountId={} "
-							  "charId={} (W:{},U:{})]",
-					user.m_Accountid, user.m_id, updateWarehouseResult, updateUserResult);
-				break;
-			}
-			// only retry the calls that fail - they're both updating using UserData[userId]->dwTime, so they should sync fine
-			if (!updateUserResult)
-			{
-				updateUserResult = _dbAgent.UpdateUser(user.m_id, userId, saveType);
-			}
-
-			std::this_thread::sleep_for(sleepTime);
-
-			if (!updateWarehouseResult)
-			{
-				updateWarehouseResult = _dbAgent.UpdateWarehouseData(
-					user.m_Accountid, userId, saveType);
-			}
+			updateWarehouseResult = _dbAgent.UpdateWarehouseData(
+				user.m_Accountid, userId, saveType, snap);
 		}
-	} // GÜVENLIK (#23 M7): guard burada serbest kalır — kilit sadece iki-tablo yazımı boyunca tutulur.
+	}
 
 	// Verify saved data/timestamp
+	// GÜVENLIK (#23 M7 v2): doğrulama versiyonu shared'den (UpdateUser m_dwTime'i orada artırdı;
+	// snapshot'taki değer eskidir). iBank/iExp ise snapshot'tan (kaydedilen değer).
 	updateWarehouseResult = _dbAgent.CheckUserData(
-		user.m_Accountid, user.m_id, 1, user.m_dwTime, user.m_iBank);
+		user.m_Accountid, user.m_id, 1, _dbAgent.UserData[userId]->m_dwTime, user.m_iBank);
 	updateUserResult = _dbAgent.CheckUserData(
-		user.m_Accountid, user.m_id, 2, user.m_dwTime, user.m_iExp);
+		user.m_Accountid, user.m_id, 2, _dbAgent.UserData[userId]->m_dwTime, user.m_iExp);
 	for (retryCount = 0; !updateWarehouseResult || !updateUserResult; retryCount++)
 	{
 		if (retryCount >= maxRetry)
@@ -501,18 +486,18 @@ bool AujardApp::HandleUserUpdate(int userId, const _USER_DATA& user, uint8_t sav
 
 		if (!updateWarehouseResult)
 		{
-			_dbAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType);
+			_dbAgent.UpdateWarehouseData(user.m_Accountid, userId, saveType, snap);
 			updateWarehouseResult = _dbAgent.CheckUserData(
-				user.m_Accountid, user.m_id, 1, user.m_dwTime, user.m_iBank);
+				user.m_Accountid, user.m_id, 1, _dbAgent.UserData[userId]->m_dwTime, user.m_iBank);
 		}
 
 		std::this_thread::sleep_for(sleepTime);
 
 		if (!updateUserResult)
 		{
-			_dbAgent.UpdateUser(user.m_id, userId, saveType);
+			_dbAgent.UpdateUser(user.m_id, userId, saveType, snap);
 			updateUserResult = _dbAgent.CheckUserData(
-				user.m_Accountid, user.m_id, 2, user.m_dwTime, user.m_iExp);
+				user.m_Accountid, user.m_id, 2, _dbAgent.UserData[userId]->m_dwTime, user.m_iExp);
 		}
 	}
 
@@ -738,51 +723,39 @@ void AujardApp::UserDataSave(const char* buffer)
 	if (pUser == nullptr)
 		return;
 
-	// PERİYODİK ENVANTER+DEPO KAYDI (crash veri güvenliği + #23 M7 TAM dupe fix):
-	// Ebenezer periyodik save mesajına envanter + bank + depo'yu AYNI andan (mutex altında) atomik
-	// snapshot olarak ekledi. flag=1 ise üçünü de UserData'ya yaz ki UpdateUser + UpdateWarehouseData
-	// tutarlı TEK kesit kaydetsin (eskiden envanter T1-snapshot, depo T3-canlı okunuyordu → arada
-	// warehouse-op olursa item iki tabloda/hiç = dupe/kayıp). flag=0 (oyun-dışı/eski client) →
-	// dokunma, eski davranış korunur.
-	//
-	// GÜVENLIK (#23 M7): snapshot'ı UYGULAMA + iki-tablo save AYNI kilit altında olmalı; aksi halde
-	// uygula ile save arası Ebenezer'ın bir sonraki warehouse-op'u sızabilir. Bu yüzden kilidi BURADA
-	// alıyoruz ve HandleUserUpdate'e callerHoldsLock=true geçiyoruz (named mutex recursive değil).
-	bool userdataSuccess = false;
+	// PERİYODİK ENVANTER+DEPO KAYDI (crash veri güvenliği + #23 M7 v2 dupe fix):
+	// Ebenezer periyodik save mesajına envanter + bank + depo'yu AYNI andan (Ebenezer'ın logic-mutex'i
+	// altında) atomik snapshot olarak ekledi. Bu üçünü LOCAL bir kopyaya (snap) uygula — shared belleğe
+	// YAZMA. Diğer alanlar (gold/exp/m_id/account/quest/skill...) canlı shared'den kopyalanır; bunlar
+	// tabloar-arası item taşımadığı için zaman-farkı dupe yaratmaz. Sonra HandleUserUpdate snap'tan
+	// DOĞRUDAN DB'ye yazar. Aujard shared'e dokunmadığı için: cross-process yarış yok, geri-yazma
+	// olmadığı için rollback yok, kilit yok. flag=0 (oyun-dışı/eski client) → snap shared'in aynısı.
+	_USER_DATA snap = *pUser; // canlı shared kopyası
+
+	uint8_t bHasItems = GetByte(buffer, index);
+	if (bHasItems != 0)
 	{
-		InterprocessMutexGuard guard(_userDataLock, 3000);
-		if (!guard.Locked())
+		// envanter (42 slot) — mesajdaki TUTARLI snapshot
+		for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
 		{
-			spdlog::error("AujardApp::UserDataSave: KNIGHT_USERDATA_LOCK timeout (3000ms), "
-						  "proceeding without lock [accountId={} charId={}]",
-				accountId, charId);
+			snap.m_sItemArray[i].nNum       = static_cast<int32_t>(GetDWORD(buffer, index));
+			snap.m_sItemArray[i].sDuration  = static_cast<int16_t>(GetShort(buffer, index));
+			snap.m_sItemArray[i].sCount     = static_cast<int16_t>(GetShort(buffer, index));
+			snap.m_sItemArray[i].nSerialNum = GetInt64(buffer, index);
 		}
 
-		uint8_t bHasItems = GetByte(buffer, index);
-		if (bHasItems != 0)
+		// bank gold + depo (192 slot) — envanterle AYNI kilitli kesitten
+		snap.m_iBank = static_cast<int32_t>(GetDWORD(buffer, index));
+		for (int i = 0; i < WAREHOUSE_MAX; i++)
 		{
-			// envanter (42 slot)
-			for (int i = 0; i < SLOT_MAX + HAVE_MAX; i++)
-			{
-				pUser->m_sItemArray[i].nNum       = static_cast<int32_t>(GetDWORD(buffer, index));
-				pUser->m_sItemArray[i].sDuration  = static_cast<int16_t>(GetShort(buffer, index));
-				pUser->m_sItemArray[i].sCount     = static_cast<int16_t>(GetShort(buffer, index));
-				pUser->m_sItemArray[i].nSerialNum = GetInt64(buffer, index);
-			}
-
-			// bank gold + depo (192 slot) — envanterle AYNI kilitli kesitten
-			pUser->m_iBank = static_cast<int32_t>(GetDWORD(buffer, index));
-			for (int i = 0; i < WAREHOUSE_MAX; i++)
-			{
-				pUser->m_sWarehouseArray[i].nNum       = static_cast<int32_t>(GetDWORD(buffer, index));
-				pUser->m_sWarehouseArray[i].sDuration  = static_cast<int16_t>(GetShort(buffer, index));
-				pUser->m_sWarehouseArray[i].sCount     = static_cast<int16_t>(GetShort(buffer, index));
-				pUser->m_sWarehouseArray[i].nSerialNum = GetInt64(buffer, index);
-			}
+			snap.m_sWarehouseArray[i].nNum       = static_cast<int32_t>(GetDWORD(buffer, index));
+			snap.m_sWarehouseArray[i].sDuration  = static_cast<int16_t>(GetShort(buffer, index));
+			snap.m_sWarehouseArray[i].sCount     = static_cast<int16_t>(GetShort(buffer, index));
+			snap.m_sWarehouseArray[i].nSerialNum = GetInt64(buffer, index);
 		}
-
-		userdataSuccess = HandleUserUpdate(userId, *pUser, UPDATE_PACKET_SAVE, /*callerHoldsLock*/ true);
 	}
+
+	bool userdataSuccess = HandleUserUpdate(userId, snap, UPDATE_PACKET_SAVE);
 
 	if (!userdataSuccess)
 	{

@@ -65,7 +65,10 @@ public:
 	/// \param userId
 	/// \param updateType one of UPDATE_LOGOUT, UPDATE_ALL_SAVE, UPDATE_PACKET_SAVE
 	/// \returns true for success, otherwise false
-	bool UpdateWarehouseData(const char* accountId, int userId, int updateType);
+	// GÜVENLIK (#23 M7 v2): snapshot verilirse kalıcı veri (depo+bank) ondan okunur — Aujard
+	// shared belleğe yazmaz (rollback yok). Verilmezse (logout/all-save) canlı UserData[userId].
+	bool UpdateWarehouseData(const char* accountId, int userId, int updateType,
+		const _USER_DATA* snapshot = nullptr);
 
 	/// \brief attempts to load warehouse data for an account into UserData[userId]
 	/// \returns true if successful, otherwise false
@@ -131,7 +134,10 @@ public:
 	/// \param updateType one of UPDATE_PACKET_SAVE, UPDATE_LOGOUT, UPDATE_ALL_SAVE
 	/// \see UPDATE_PACKET_SAVE, UPDATE_LOGOUT, UPDATE_ALL_SAVE
 	/// \returns true when database successfully updated, false otherwise
-	bool UpdateUser(const char* charId, int userId, int updateType);
+	// GÜVENLIK (#23 M7 v2): snapshot verilirse kalıcı veri (envanter/gold/exp...) ondan okunur —
+	// Aujard shared'e yazmaz. Versiyon (m_dwTime) yine UserData[userId] üstünde tutulur.
+	bool UpdateUser(const char* charId, int userId, int updateType,
+		const _USER_DATA* snapshot = nullptr);
 
 	/// \brief populates UserData[userId] from the database
 	bool LoadUserData(const char* accountId, const char* charId, int userId);

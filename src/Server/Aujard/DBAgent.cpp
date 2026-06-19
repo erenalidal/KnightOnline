@@ -386,19 +386,24 @@ bool CDBAgent::LoadUserData(const char* accountId, const char* charId, int userI
 	return true;
 }
 
-bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
+bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType, const _USER_DATA* snapshot)
 {
-	_USER_DATA* user = UserData[userId];
-	if (user == nullptr)
+	_USER_DATA* shared = UserData[userId];
+	if (shared == nullptr)
 		return false;
 
-	if (strnicmp(user->m_id, charId, MAX_ID_SIZE) != 0)
+	if (strnicmp(shared->m_id, charId, MAX_ID_SIZE) != 0)
 		return false;
 
+	// GÜVENLIK (#23 M7 v2): versiyon (m_dwTime) HER ZAMAN shared'de tutulur (monotonik,
+	// Ebenezer-görünür). Kalıcı veri ise snapshot verilmişse ondan (mesajdan, tutarlı) okunur;
+	// böylece Aujard shared'e YAZMADAN kaydeder (rollback yok). Yoksa canlı shared (logout/all-save).
 	if (updateType == UPDATE_PACKET_SAVE)
-		user->m_dwTime++;
+		shared->m_dwTime++;
 	else if (updateType == UPDATE_LOGOUT || updateType == UPDATE_ALL_SAVE)
-		user->m_dwTime = 0;
+		shared->m_dwTime = 0;
+
+	const _USER_DATA* user = (snapshot != nullptr) ? snapshot : shared;
 
 	ByteBuffer skills(10), items(400), serials(400), quests(400);
 	int16_t questTotal = 0;
@@ -407,23 +412,24 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 
 	for (int i = 0; i < MAX_QUEST; i++)
 	{
-		_USER_QUEST& quest = user->m_quests[i];
+		const _USER_QUEST& quest = user->m_quests[i];
+		int16_t qid    = quest.sQuestID;
+		uint8_t qstate = static_cast<uint8_t>(quest.byQuestState);
 
+		// Geçersiz quest'i boş kaydet. user const (snapshot) → mutasyon YOK; lokalde sıfırla.
 		if (quest.sQuestID > QUEST_MAX_ID || quest.byQuestState > QUEST_STATE_COMPLETE)
 		{
-			memset(&quest, 0, sizeof(_USER_QUEST));
+			qid    = 0;
+			qstate = 0;
 		}
-		else
+		else if (quest.sQuestID >= QUEST_MIN_ID)
 		{
-			if (quest.sQuestID >= QUEST_MIN_ID)
-				++questTotal;
+			++questTotal;
 		}
 
-		quests << int16_t(quest.sQuestID) << uint8_t(quest.byQuestState);
+		quests << int16_t(qid) << uint8_t(qstate);
 	}
-
-	if (questTotal != user->m_sQuestCount)
-		user->m_sQuestCount = questTotal;
+	// (m_sQuestCount geri-yazımı kaldırıldı — stored proc aşağıda questTotal'i kullanıyor, gerekmez)
 
 	// Equip slots + inventory slots (14+28=42)
 	for (int i = 0; i < HAVE_MAX + SLOT_MAX; i++)
@@ -454,7 +460,7 @@ bool CDBAgent::UpdateUser(const char* charId, int userId, int updateType)
 			user->m_bIntel, user->m_bCha, user->m_bAuthority, user->m_bPoints, user->m_iGold,
 			user->m_bZone, user->m_sBind, static_cast<int>(user->m_curx * 100),
 			static_cast<int>(user->m_curz * 100), static_cast<int>(user->m_cury * 100),
-			user->m_dwTime, questTotal, skills.storage(), items.storage(), serials.storage(),
+			shared->m_dwTime, questTotal, skills.storage(), items.storage(), serials.storage(),
 			quests.storage(), user->m_iMannerPoint, user->m_iLoyaltyMonthly);
 
 		auto result      = weak_result.lock();
@@ -949,26 +955,30 @@ bool CDBAgent::LoadWarehouseData(const char* accountId, int userId)
 	return true;
 }
 
-bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int updateType)
+bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int updateType,
+	const _USER_DATA* snapshot)
 {
-	_USER_DATA* pUser = UserData[userId];
-	if (pUser == nullptr || strlen(accountId) == 0)
+	_USER_DATA* shared = UserData[userId];
+	if (shared == nullptr || strlen(accountId) == 0)
 	{
 		spdlog::error("DBAgent::UpdateWarehouseData: called with inactive userId={} accountId={}",
 			userId, accountId);
 		return false;
 	}
 
-	if (strnicmp(pUser->m_Accountid, accountId, MAX_ID_SIZE) != 0)
+	if (strnicmp(shared->m_Accountid, accountId, MAX_ID_SIZE) != 0)
 	{
 		spdlog::error(
 			"DBAgent::UpdateWarehouseData: accountId mismatch user.accountId={} accountId={}",
-			pUser->m_Accountid, accountId);
+			shared->m_Accountid, accountId);
 		return false;
 	}
 
 	if (updateType == UPDATE_LOGOUT || updateType == UPDATE_ALL_SAVE)
-		pUser->m_dwTime = 0;
+		shared->m_dwTime = 0;
+
+	// GÜVENLIK (#23 M7 v2): depo+bank snapshot'tan (mesajdan, tutarlı) okunur, versiyon shared'de.
+	const _USER_DATA* pUser = (snapshot != nullptr) ? snapshot : shared;
 
 	ByteBuffer items(1600), serials(1600);
 
@@ -988,7 +998,7 @@ bool CDBAgent::UpdateWarehouseData(const char* accountId, int userId, int update
 		db::StoredProc<storedProc::UpdateWarehouse> proc;
 
 		auto weak_result = proc.execute(
-			accountId, pUser->m_iBank, pUser->m_dwTime, items.storage(), serials.storage());
+			accountId, pUser->m_iBank, shared->m_dwTime, items.storage(), serials.storage());
 
 		auto result = weak_result.lock();
 		if (result == nullptr)
