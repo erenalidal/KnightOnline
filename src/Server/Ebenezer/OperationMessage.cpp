@@ -407,6 +407,12 @@ bool OperationMessage::Process(const std::string_view command)
 				GiveItem();
 				break;
 
+			// +money_add <miktar> (in-game) / +money_add <charName> <miktar> (telnet) — GM gold ekleme
+			case "/money_add"_djb2:
+			case "+money_add"_djb2:
+				MoneyAdd();
+				break;
+
 			// +exp_event <yüzde> <dakika> — sunucu-geneli süreli EXP bonusu (GM)
 			case "+exp_event"_djb2:
 				ExpEvent();
@@ -780,9 +786,39 @@ void OperationMessage::SiegeWarLoadTable()
 	// TODO
 }
 
+// In-game (srcUser var): +money_add <miktar>
+// Telnet (srcUser yok): ilk argüman hedef karakter adıdır → +money_add <charName> <miktar>
 void OperationMessage::MoneyAdd()
 {
-	// TODO
+	if (GetArgCount() < 1)
+		return;
+
+	CUser*                 pTarget = nullptr;
+	std::shared_ptr<CUser> pTargetHold; // adlandırılmış hedefin ömrünü tut
+	int                    amount  = 0;
+
+	if (GetArgCount() >= 2)
+	{
+		// İsimli: +money_add <charName> <miktar> — in-game ya da telnet, ada göre hedefle
+		pTargetHold = _main->GetUserPtr(ParseString(0).c_str(), NameType::Character);
+		pTarget     = pTargetHold.get();
+		amount      = ParseInt(1);
+	}
+	else
+	{
+		// İsimsiz: +money_add <miktar> — kendine ekle (yalnızca in-game)
+		pTarget = _srcUser;
+		amount  = ParseInt(0);
+	}
+
+	if (pTarget == nullptr)
+		return;
+
+	if (amount > 0)
+		pTarget->GoldGain(amount); // gold ekler + client'a WIZ_GOLD_CHANGE gönderir
+
+	spdlog::warn("OperationMessage::MoneyAdd: invoked [target={} amount={} newGold={}]",
+		pTarget->m_pUserData->m_id, amount, pTarget->m_pUserData->m_iGold);
 }
 
 void OperationMessage::ExpAdd()
