@@ -595,7 +595,9 @@ CN3CPlugBase* CPlayerMySelf::PlugSet(
 	}
 	else if (PLUG_POS_BACK == ePos)
 	{
-		//m_pItemBasicPlugRefs[PLUG_POS_BACK] = pItem;
+		// Clan pelerini: envanter/paperdoll karakteri (m_ChrInv) için sırt joint'i.
+		if (m_pLooksRef != nullptr)
+			iJoint = m_pLooksRef->iJointCloak;
 	}
 	else
 	{
@@ -613,10 +615,10 @@ CN3CPlugBase* CPlayerMySelf::PlugSet(
 		pPlug->ScaleSet(__Vector3(fScale, fScale, fScale));
 		pPlug->m_nJointIndex = iJoint; // 관절 번호 세팅..
 	}
-	//	else if(PLUG_POS_BACK == ePos)
-	//	{
-	//		CN3CPlug_Cloak *pPlugCloak = (CN3CPlug_Cloak*)pPlug;
-	//	}
+	else if (PLUG_POS_BACK == ePos && !szFN.empty() && iJoint > 0)
+	{
+		pPlug->m_nJointIndex = iJoint; // pelerini sırt joint'ine bağla (m_ChrInv)
+	}
 
 	this->SetSoundPlug(pItemBasic);
 	return CPlayerBase::PlugSet(ePos, szFN, pItemBasic, pItemExt);
@@ -990,9 +992,9 @@ void CPlayerMySelf::InitHair()
 	}
 }
 
-void CPlayerMySelf::KnightsInfoSet(int iID, const std::string& szName, int iGrade, int iRank)
+void CPlayerMySelf::KnightsInfoSet(int iID, const std::string& szName, int iGrade, int iRank, int16_t sCapeID)
 {
-	CPlayerBase::KnightsInfoSet(iID, szName, iGrade, iRank);
+	CPlayerBase::KnightsInfoSet(iID, szName, iGrade, iRank, sCapeID);
 
 	m_InfoExt.szKnights     = szName;
 	m_InfoExt.iKnightsGrade = iGrade;

@@ -201,9 +201,9 @@ void CPlayerOther::InitHair()
 	}
 }
 
-void CPlayerOther::KnightsInfoSet(int iID, const std::string& szName, int iGrade, int iRank)
+void CPlayerOther::KnightsInfoSet(int iID, const std::string& szName, int iGrade, int iRank, int16_t sCapeID)
 {
-	CPlayerBase::KnightsInfoSet(iID, szName, iGrade, iRank);
+	CPlayerBase::KnightsInfoSet(iID, szName, iGrade, iRank, sCapeID);
 
 	m_InfoExt.szKnights     = szName;
 	m_InfoExt.iKnightsGrade = iGrade;

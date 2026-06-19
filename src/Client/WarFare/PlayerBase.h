@@ -75,6 +75,8 @@ struct __InfoPlayerBase
 };
 
 class CN3ShapeExtra;
+class CN3Mesh;
+class CN3Texture;
 class CPlayerBase : public CGameBase
 {
 	friend class CPlayerOtherMgr;
@@ -91,6 +93,15 @@ protected:
 	__TABLE_ITEM_EXT* m_pItemPartExts[PART_POS_COUNT]     = {}; // 캐릭터에 붙은 무기들..
 	__TABLE_ITEM_BASIC* m_pItemPlugBasics[PLUG_POS_COUNT] = {}; // 캐릭터에 붙은 무기들..
 	__TABLE_ITEM_EXT* m_pItemPlugExts[PLUG_POS_COUNT]     = {}; // 캐릭터에 붙은 무기들..
+
+	// Clan pelerini (statik mesh render): bu build'in cape asset'leri (cloak_XXX.n3cplug -> statik
+	// .n3mesh, texture yok) ne plug ne cloth sistemiyle çalışıyor; cape'i CN3Mesh olarak yükleyip
+	// sırt joint'inin world matrisinde elle çiziyoruz. MatrixGet bounds-checked => crash-safe.
+	CN3Mesh* m_pCapeMeshRef                              = nullptr;
+	CN3Texture* m_pCapeTexRef                            = nullptr;
+	int m_nCapeJoint                                     = -1;
+	std::vector<__VertexT1> m_CapeVerts                  = {};   // her frame deforme edilen kopya (dalgalanma)
+	float m_fCapeTime                                    = 0.0f; // dalga fazı için biriken zaman
 
 	// ID
 	CDFont* m_pClanFont                                   = nullptr;                  // clan or knights..이름 찍는데 쓰는 Font.. -.-;
@@ -371,7 +382,7 @@ public:
 	void InfoStringSet(const std::string& szInfo, D3DCOLOR crFont);
 	void BalloonStringSet(const std::string& szBalloon, D3DCOLOR crFont);
 	void IDSet(int iID, const std::string& szID, D3DCOLOR crID);
-	virtual void KnightsInfoSet(int iID, const std::string& szName, int iGrade, int iRank);
+	virtual void KnightsInfoSet(int iID, const std::string& szName, int iGrade, int iRank, int16_t sCapeID = -1);
 
 	// ID 는 Character 포인터의 이름으로 대신한다.
 	const std::string& IDString() const
@@ -413,6 +424,11 @@ public:
 
 	virtual CN3CPart* PartSet(e_PartPosition ePos, const std::string& szFN, __TABLE_ITEM_BASIC* pItemBasic, __TABLE_ITEM_EXT* pItemExt);
 	virtual CN3CPlugBase* PlugSet(e_PlugPosition ePos, const std::string& szFN, __TABLE_ITEM_BASIC* pItemBasic, __TABLE_ITEM_EXT* pItemExt);
+
+	// Clan pelerini: sCapeID>=0 ise nation'a göre cape mesh+texture yükler, -1 ise bırakır.
+	void CapeSet(int16_t sCapeID);
+	// Karakter gövdesinden sonra pelerini sırt joint'inde çizer (CPlayerBase::Render içinden).
+	void RenderCape();
 	virtual void DurabilitySet(e_ItemSlot eSlot, int iDurability);
 
 	void TickYaw();           // 회전값 처리.

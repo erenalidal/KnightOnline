@@ -10,6 +10,7 @@
 #include "text_resources.h"
 
 #include <N3Base/DFont.h>
+#include <N3Base/N3Mesh.h>
 #include <N3Base/N3ShapeExtra.h>
 #include <N3Base/N3SndObj.h>
 
@@ -52,6 +53,11 @@ CPlayerBase::~CPlayerBase()
 	//	s_MngTex.Delete(m_pTexShadow);
 
 	//	~(By Ecli666 On 2002-03-29 오후 4:24:14 )
+	if (m_pCapeMeshRef != nullptr)
+		s_MngMesh.Delete(&m_pCapeMeshRef);
+	if (m_pCapeTexRef != nullptr)
+		s_MngTex.Delete(&m_pCapeTexRef);
+
 	delete m_pClanFont;
 	m_pClanFont = nullptr;
 	delete m_pIDFont;
@@ -295,7 +301,7 @@ void CPlayerBase::IDSet(int iID, const std::string& szID, D3DCOLOR crID)
 #endif
 }
 
-void CPlayerBase::KnightsInfoSet(int iID, const std::string& /*szName*/, int iGrade, int iRank)
+void CPlayerBase::KnightsInfoSet(int iID, const std::string& /*szName*/, int iGrade, int iRank, int16_t sCapeID)
 {
 	std::string szPlug;
 	if (iGrade > 0 && iGrade <= 5)
@@ -305,6 +311,11 @@ void CPlayerBase::KnightsInfoSet(int iID, const std::string& /*szName*/, int iGr
 	}
 
 	m_InfoBase.iKnightsID = iID;
+
+	// Clan pelerini: sCapeID >= 0 => clan KNIGHTS_TYPE'a terfi etmiş, pelerin var.
+	// Plug/cloth sistemi bu build'in asset'leriyle çalışmadığından (statik .n3mesh, texture yok)
+	// cape statik mesh olarak yüklenip RenderCape() ile sırt joint'inde çizilir.
+	CapeSet(sCapeID);
 
 	CN3CPlugBase* pPlug   = PlugSet(PLUG_POS_KNIGHTS_GRADE, szPlug, nullptr, nullptr);
 	if (pPlug == nullptr)
@@ -317,6 +328,131 @@ void CPlayerBase::KnightsInfoSet(int iID, const std::string& /*szName*/, int iGr
 		szFXMain = pFXClanRank->szFN;
 
 	static_cast<CN3CPlug*>(pPlug)->InitFX(szFXMain, szFXTail, 0xffffffff);
+}
+
+// İsimle joint index bulur (FindIndex tool-only olduğu için kendi DFS pre-order aramamız).
+static bool FindJointIndexByName(CN3Joint* pJoint, const std::string& szName, int& idx, int& outIndex)
+{
+	if (pJoint == nullptr)
+		return false;
+	if (pJoint->m_szName == szName)
+	{
+		outIndex = idx;
+		return true;
+	}
+	idx++;
+	for (int i = 0; i < pJoint->ChildCount(); i++)
+	{
+		if (FindJointIndexByName(pJoint->Child(i), szName, idx, outIndex))
+			return true;
+	}
+	return false;
+}
+
+void CPlayerBase::CapeSet(int16_t sCapeID)
+{
+	// önce mevcut cape kaynaklarını bırak
+	if (m_pCapeMeshRef != nullptr)
+		s_MngMesh.Delete(&m_pCapeMeshRef);
+	if (m_pCapeTexRef != nullptr)
+		s_MngTex.Delete(&m_pCapeTexRef);
+	m_nCapeJoint = -1;
+
+	if (sCapeID < 0) // pelerin yok / temel clan
+		return;
+
+	// sCape yalnızca varlık kodluyor (server: 0=var, -1=yok); görsel nation'a göre seçilir.
+	int iCapeNo            = (m_InfoBase.eNation == NATION_KARUS) ? 11 : 1;
+	std::string szMesh     = fmt::format("Item\\cloak_{:03}.n3mesh", iCapeNo);
+	m_pCapeMeshRef         = s_MngMesh.Get(szMesh, true);
+	m_pCapeTexRef          = s_MngTex.Get("Item\\cloak_basic.dxt", true, s_Options.iTexLOD_Chr);
+
+	// Cape mesh joint-local uzayda, origin'den aşağı sarkıyor => boyun/omuz bölgesine ('Neck')
+	// bağlanır (pelerin tokası boyunda, sırtı yukarıdan kaplar). Joint'i isimle buluyoruz
+	// (race'ten bağımsız, FindIndex tool-only olduğu için kendi DFS aramamız).
+	int ji = 0, found = -1;
+	if (FindJointIndexByName(m_Chr.Joint(), "Neck", ji, found))
+		m_nCapeJoint = found;
+}
+
+void CPlayerBase::RenderCape()
+{
+	if (m_pCapeMeshRef == nullptr || m_nCapeJoint < 0)
+		return;
+
+	// MatrixGet bounds-checked: geçersiz joint => nullptr => crash yok, sadece çizmeyiz.
+	const __Matrix44* pMtxJoint = m_Chr.MatrixGet(m_nCapeJoint);
+	if (pMtxJoint == nullptr)
+		return;
+
+	const int          nVC  = m_pCapeMeshRef->VertexCount();
+	const int          nIC  = m_pCapeMeshRef->IndexCount();
+	const __VertexT1*  orig = m_pCapeMeshRef->Vertices();
+	const uint16_t*    pIdx = m_pCapeMeshRef->Indices();
+	if (nVC <= 0 || nIC < 3 || orig == nullptr || pIdx == nullptr)
+		return;
+
+	// DALGALANMA: mesh'i her frame deforme et. Üst kenar (y~0, attach noktası) sabit anchor;
+	// aşağı indikçe (droop büyüdükçe) salınım artar => cloth/rüzgar hissi. Koşarken daha çok dalga.
+	m_fCapeTime += s_fSecPerFrm;
+	if (static_cast<int>(m_CapeVerts.size()) != nVC)
+		m_CapeVerts.resize(nVC);
+
+	float fMove      = (StateMove() == PSM_RUN) ? 1.0f : (StateMove() == PSM_WALK) ? 0.55f : 0.0f;
+	float fMoveBoost = 1.0f + fMove * 0.8f;
+	const float kSpeed = 3.2f, kAmp = 0.16f * fMoveBoost, kXFreq = 2.6f;
+	for (int i = 0; i < nVC; i++)
+	{
+		__VertexT1 v     = orig[i];
+		float      droop = (v.y < 0.0f) ? -v.y : 0.0f;
+		float      dn    = droop * (1.0f / 1.64f); // 0=üst, 1=alt
+		if (dn > 1.0f)
+			dn = 1.0f;
+		float w     = dn * dn;                       // alt uç en çok, üst neredeyse sabit (anchor)
+		float phase = m_fCapeTime * kSpeed + v.x * kXFreq;
+		// pelerini sırttan biraz GERİYE al (üst hafif, alt daha çok) => gövdeye yapışmasın
+		v.z -= 0.09f + dn * 0.09f;
+		// ambient rüzgar dalgası (dururken de hafif kıpırdar)
+		v.z += sinf(phase) * w * kAmp;
+		v.x += cosf(phase * 0.7f) * w * kAmp * 0.35f;
+		// yürürken/koşarken: pelerin ARKAYA savrulur (-z) ve YUKARI kalkar (+y) => "trailing" his
+		v.z -= fMove * w * 0.55f;
+		v.y += fMove * w * 0.38f;
+		m_CapeVerts[i] = v;
+	}
+
+	// Cape mesh attach-point-local (origin'den -y'de aşağı sarkar, -z'de geriye).
+	// ÖNEMLİ: m_MtxJoints karakter-LOKAL (world değil); joint world pozisyonu için lokal pos'u
+	// m_Chr.m_Matrix ile dönüştürmek gerekir. YÖNELİMİ karakterden, POZİSYONU Chest2'nin world
+	// halinden alıyoruz => pelerin sırttan düz aşağı sarkar, karakterle döner (spine rotasyonu yok).
+	__Vector3 jointWorldPos = pMtxJoint->Pos() * m_Chr.m_Matrix;
+	__Matrix44 mtxCape      = m_Chr.m_Matrix;
+	mtxCape.PosSet(jointWorldPos);
+
+	DWORD dwCull = 0, dwAlpha = 0;
+	s_lpD3DDev->GetRenderState(D3DRS_CULLMODE, &dwCull);
+	s_lpD3DDev->GetRenderState(D3DRS_ALPHABLENDENABLE, &dwAlpha);
+	s_lpD3DDev->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);    // pelerin çift taraflı
+	s_lpD3DDev->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);  // opak
+
+	s_lpD3DDev->SetTransform(D3DTS_WORLD, mtxCape.toD3D());
+	s_lpD3DDev->SetFVF(FVF_VNT1);
+
+	LPDIRECT3DTEXTURE9 lpTex = (m_pCapeTexRef != nullptr) ? m_pCapeTexRef->Get() : nullptr;
+	if (lpTex != nullptr)
+	{
+		// texture * lighting(diffuse) => gövdeyle aynı doğal aydınlatma
+		s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+		s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+		s_lpD3DDev->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
+		s_lpD3DDev->SetTexture(0, lpTex);
+	}
+
+	s_lpD3DDev->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, nVC, nIC / 3, pIdx,
+		D3DFMT_INDEX16, m_CapeVerts.data(), sizeof(__VertexT1));
+
+	s_lpD3DDev->SetRenderState(D3DRS_CULLMODE, dwCull);
+	s_lpD3DDev->SetRenderState(D3DRS_ALPHABLENDENABLE, dwAlpha);
 }
 
 void CPlayerBase::RenderChrInRect(CN3Chr* pChr, const RECT& Rect)
@@ -815,6 +951,8 @@ void CPlayerBase::Render(float fSunAngle)
 	{
 		m_Chr.Render();
 	}
+
+	RenderCape(); // clan pelerini (gövdeden sonra, sırt joint'inde)
 
 	if (s_Options.iUseShadow)
 		this->RenderShadow(fSunAngle);
@@ -1736,7 +1874,10 @@ CN3CPlugBase* CPlayerBase::PlugSet(e_PlugPosition ePos, const std::string& szFN,
 	}
 	else if (PLUG_POS_BACK == ePos)
 	{
-		//m_pItemPlugBasics[PLUG_POS_BACK] = pItem;
+		// Clan pelerini sırt joint'ine takılır. Joint normalde plug dosyasında gömülü gelir;
+		// looks tablosunda geçerli bir cloak joint'i varsa onu kullanıp dosyayı override ederiz.
+		if (m_pLooksRef != nullptr)
+			iJoint = m_pLooksRef->iJointCloak;
 	}
 	else
 	{
@@ -1754,10 +1895,10 @@ CN3CPlugBase* CPlayerBase::PlugSet(e_PlugPosition ePos, const std::string& szFN,
 		pPlug->ScaleSet(__Vector3(fScale, fScale, fScale));
 		pPlug->m_nJointIndex = iJoint;         // 붙는 위치 정하기..
 	}
-	//	else if(PLUG_POS_BACK == ePos)
-	//	{
-	//		CN3CPlug_Cloak *pPlugCloak = (CN3CPlug_Cloak*)pPlug;
-	//	}
+	else if (PLUG_POS_BACK == ePos && !szFN.empty() && iJoint > 0)
+	{
+		pPlug->m_nJointIndex = iJoint; // pelerini sırt joint'ine bağla
+	}
 
 	if (pPlug && nullptr == pItemBasic && nullptr == pItemExt)
 		pPlug->TexOverlapSet(""); // 기본 착용이면..

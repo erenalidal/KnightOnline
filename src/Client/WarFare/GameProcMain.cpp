@@ -1948,11 +1948,11 @@ bool CGameProcMain::MsgRecv_MyInfo_All(Packet& pkt)
 	int iKnightsRank  = pkt.read<uint8_t>();  // 소속 기사단 순위
 
 	/*int16_t sMarkVersion            =*/pkt.read<int16_t>();
-	/*int16_t sCapeID                 =*/pkt.read<int16_t>();
+	int16_t sCapeID                   = pkt.read<int16_t>(); // clan pelerini (>=0 => var)
 
 	// 기사단 관련 세팅..
 	s_pPlayer->m_InfoExt.eKnightsDuty = eKnightsDuty; // 기사단에서의 권한..
-	s_pPlayer->KnightsInfoSet(iKnightsID, szKnightsName, iKnightsGrade, iKnightsRank);
+	s_pPlayer->KnightsInfoSet(iKnightsID, szKnightsName, iKnightsGrade, iKnightsRank, sCapeID);
 	m_pUIVar->UpdateKnightsInfo();
 
 	s_pPlayer->m_InfoBase.iHPMax             = pkt.read<int16_t>();
@@ -2601,7 +2601,7 @@ bool CGameProcMain::MsgRecv_UserIn(Packet& pkt, bool bWithFX)
 	int iKnightsRank  = pkt.read<uint8_t>();  // 순위
 
 	/*int16_t sMarkVersion =*/pkt.read<int16_t>();
-	/*int16_t sCapeID    =*/pkt.read<int16_t>();
+	int16_t sCapeID  = pkt.read<int16_t>(); // clan pelerini (>=0 => var)
 
 	int iLevel      = pkt.read<uint8_t>(); // 레벨...
 	e_Race eRace    = (e_Race) pkt.read<uint8_t>();
@@ -2683,7 +2683,7 @@ bool CGameProcMain::MsgRecv_UserIn(Packet& pkt, bool bWithFX)
 	pUPC->m_InfoBase.iAuthority = byAuthority;
 	pUPC->Init(eRace, iFace, iHair, dwItemIDs, iItemDurabilities, byItemFlags);
 	pUPC->RotateTo(DegreesToRadians(rand() % 360), true);
-	pUPC->KnightsInfoSet(iKnightsID, szKnightsName, iKnightsGrade, iKnightsRank);
+	pUPC->KnightsInfoSet(iKnightsID, szKnightsName, iKnightsGrade, iKnightsRank, sCapeID);
 
 	//__KnightsInfoBase* pKIB = m_pUIKnightsOp->KnightsInfoFind(iKightsID);
 	//if(pKIB) pUPC->KnightsNameSet(pKIB->szName, 0xffff0000);
