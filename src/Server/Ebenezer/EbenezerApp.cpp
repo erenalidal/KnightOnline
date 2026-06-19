@@ -17,8 +17,11 @@
 #include <shared/TimerThread.h>
 
 #include <db-library/ConnectionManager.h>
+#include <db-library/Connection.h>
+#include <db-library/PoolConnection.h>
 #include <db-library/RecordSetLoader_STLMap.h>
 #include <db-library/RecordSetLoader_Vector.h>
+#include <nanodbc/nanodbc.h>
 
 #include <Ebenezer/binder/EbenezerBinder.h>
 
@@ -412,6 +415,31 @@ bool EbenezerApp::OnStart()
 	{
 		spdlog::error("EbenezerApp::OnStart: failed to cache LEVEL_UP table, closing");
 		return false;
+	}
+
+	// FEATURE (#clan-grade): clan puanlarını HER STARTUP'ta üyelerin Loyalty toplamından yeniden
+	// hesapla. RANK_KNIGHTS proc'u: KNIGHTS.Points = Sum(üye Loyalty). Sonra LoadAllKnights bu güncel
+	// puanı okuyup grade'i (GetKnightsGrade) doğru hesaplar. Bu sunucuda otomatik scheduled job yok
+	// (orijinal KO günlük çalıştırırdı) → restart'ta recompute → sonra aç. Hata olursa non-fatal.
+	spdlog::info("EbenezerApp::OnStart: recomputing KNIGHTS points (RANK_KNIGHTS)");
+	try
+	{
+		auto poolConn = ConnectionManager::CreatePoolConnection(model::Knights::DbType());
+		if (poolConn != nullptr)
+		{
+			static_cast<Connection*>(*poolConn)->ReconnectIfDisconnected();
+			nanodbc::statement stmt = poolConn->CreateStatement("EXEC RANK_KNIGHTS");
+			stmt.execute();
+			spdlog::info("EbenezerApp::OnStart: KNIGHTS points recomputed (Sum member Loyalty)");
+		}
+		else
+		{
+			spdlog::error("EbenezerApp::OnStart: RANK_KNIGHTS skipped - no DB connection");
+		}
+	}
+	catch (const std::exception& ex)
+	{
+		spdlog::error("EbenezerApp::OnStart: RANK_KNIGHTS failed (non-fatal): {}", ex.what());
 	}
 
 	spdlog::info("EbenezerApp::OnStart: loading KNIGHTS table");
