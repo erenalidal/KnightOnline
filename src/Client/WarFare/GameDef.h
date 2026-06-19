@@ -23,7 +23,7 @@
 
 #include <shared/globals.h>
 
-inline constexpr int CURRENT_VERSION                           = 1298;
+inline constexpr int CURRENT_VERSION                           = __VERSION; // tek version-knob (src/shared/version.h)
 
 // This is the maximum time we must wait after sending the WIZ_VERSION_CHECK packet on the login scene, before we're allowed
 // to attempt to re-establish a connection to the game server.

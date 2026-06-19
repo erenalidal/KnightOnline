@@ -123,11 +123,21 @@ void CGameProcLogIn_1298::Init()
 		{
 			m_pUILogIn->FocusToID(); // Focus on the ID input box..
 
-			// 게임 서버 리스트 요청..
 			int iOffset = 0;
 			uint8_t byBuffs[4];
-			CAPISocket::MP_AddByte(byBuffs, iOffset, LS_SERVERLIST); // 커멘드.
-			s_pSocket->Send(byBuffs, iOffset);                       // 보낸다
+			if constexpr (__VERSION >= 1453)
+			{
+				// 1453+ (protocol uplift): login soketinde önce kripto el sıkışması.
+				// LS_CRYPTION (payload yok) gönder → server public key döner →
+				// MsgRecv LS_CRYPTION'da InitCrypt + serverlist isteği yapılır.
+				CAPISocket::MP_AddByte(byBuffs, iOffset, LS_CRYPTION);
+			}
+			else
+			{
+				// 1298: doğrudan server listesi iste (kripto game-server'da kurulur).
+				CAPISocket::MP_AddByte(byBuffs, iOffset, LS_SERVERLIST);
+			}
+			s_pSocket->Send(byBuffs, iOffset); // 보낸다
 		}
 	}
 	else
@@ -426,6 +436,19 @@ bool CGameProcLogIn_1298::ProcessPacket(Packet& pkt)
 	s_pPlayer->m_InfoBase.eNation = NATION_UNKNOWN;
 	switch (iCmd)                                        // 커멘드에 다라서 분기..
 	{
+		case LS_CRYPTION: // 1453+: server public key geldi → login soketinde kripto aç, sonra serverlist iste
+			if constexpr (__VERSION >= 1453)
+			{
+				uint64_t iPublicKey = pkt.read<uint64_t>();
+				CAPISocket::InitCrypt(iPublicKey); // global kripto açılır (login + sonraki paketler)
+
+				int     iOff = 0;
+				uint8_t byB[4];
+				CAPISocket::MP_AddByte(byB, iOff, LS_SERVERLIST);
+				s_pSocket->Send(byB, iOff);
+			}
+			return true;
+
 		case LS_SERVERLIST:                              // 접속하면 바로 보내준다..
 			MsgRecv_GameServerGroupList(pkt);
 			return true;
