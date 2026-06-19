@@ -908,11 +908,15 @@ void CGameProcedure::MsgRecv_CompressedPacket(Packet& pkt) // 압축된 데이�
 
 int CGameProcedure::MsgRecv_VersionCheck(Packet& pkt) // virtual
 {
+	if constexpr (__VERSION >= 1453)
+		pkt.read<uint8_t>();                          // snoxd: version'dan ÖNCE flag byte (uint8(0))
 	int iVersion = pkt.read<int16_t>();               // 버전
 #ifdef _CRYPTION
 	uint64_t iPublicKey = pkt.read<uint64_t>();       // 암호화 공개키
 	CAPISocket::InitCrypt(iPublicKey);
 	s_pSocket->m_bEnableSend = TRUE;                  // 보내기 가능..?
+	if constexpr (__VERSION >= 1453)
+		pkt.read<uint8_t>();                          // snoxd: key'den SONRA flag byte (uint8(0))
 #endif                                                // #ifdef _CRYPTION
 
 	if (iVersion != CURRENT_VERSION)
