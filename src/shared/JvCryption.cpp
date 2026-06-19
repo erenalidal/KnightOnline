@@ -2,8 +2,22 @@
 #include "JvCryption.h"
 #include "version.h"
 
-// Cryption
-constexpr uint64_t g_private_key = 0x1234567890123456;
+// Cryption — özel anahtar hedef sürüme göre değişir (snoxd referansıyla birebir).
+// __VERSION (version.h) constexpr olduğu için preprocessor yerine constexpr seçim kullanıyoruz:
+//   >=1700           -> 0x1207500120128966
+//   1298 <= V < 1453 -> 0x1234567890123456  (mevcut 1298 davranışı)
+//   else (1453..1700) -> 0x1257091582190465
+// Böylece __VERSION'ı 1453'e çekince anahtar otomatik doğru seçilir (protocol uplift).
+constexpr uint64_t SelectPrivateKey(int v)
+{
+	if (v >= 1700)
+		return 0x1207500120128966ULL;
+	if (v >= 1298 && v < 1453)
+		return 0x1234567890123456ULL;
+	return 0x1257091582190465ULL;
+}
+
+constexpr uint64_t g_private_key = SelectPrivateKey(__VERSION);
 
 void CJvCryption::Init()
 {
