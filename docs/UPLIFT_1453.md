@@ -16,6 +16,12 @@ Uplift'i test etmek için çalışan bir 1453 sunucusu şart. Aday: snoxd'yi `__
 Mac'te derlemek (autotools Linux build'i var). DB: mevcut KN_online'a DOKUNMA → yeni KN_1453.
 > Durum: fizibilite ayrı bir analizde değerlendiriliyor.
 
+## ✅ DOĞRULANDI (test): Faz 1 login protokolü ÇALIŞIYOR
+1453 client (native Mac) → native Mac snoxd@1453 login sunucusu (127.0.0.1:15110):
+connect → LS_CRYPTION kripto handshake → LS_SERVERLIST → `test`/`test` ile şifreli
+LS_LOGIN_REQ → MAIN_LOGIN başarılı → **server-select ekranına ulaşıldı**. Login uplift kanıtlandı.
+Test sunucusu: `ko-refs/snoxd-1453-build` (VersionManager :15110, KN_accounts DB, KN_online'a dokunulmadı).
+
 ## Faz 1 — Login + kripto (ilk bağlantı)
 - [x] **Kripto özel anahtarı**: 1453 → `0x1257091582190465` (snoxd `>=1453` rejimi).
       `src/shared/JvCryption.cpp` artık `__VERSION`'a göre constexpr seçiyor (1298'de 0x1234... korunur).
