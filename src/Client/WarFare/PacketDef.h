@@ -5,8 +5,9 @@
 
 #include <shared/version.h>
 
-inline constexpr int SOCKET_PORT_GAME  = 15001;
-// 1453 uplift testi: yerel snoxd@1453 login sunucusu 15110'da (15100'ü canlı 1298 tutuyor).
+// 1453 uplift testi: yerel snoxd@1453 game/login sunucuları 15011/15110'da
+// (15001/15100'ü canlı 1298 sunucuları tutuyor).
+inline constexpr int SOCKET_PORT_GAME  = (__VERSION >= 1453) ? 15011 : 15001;
 inline constexpr int SOCKET_PORT_LOGIN = (__VERSION >= 1453) ? 15110 : 15100;
 
 #include <shared/packets.h>

@@ -2014,6 +2014,13 @@ bool CGameProcMain::MsgRecv_MyInfo_All(Packet& pkt)
 
 		/*uint8_t bRentFlag          =*/pkt.read<uint8_t>();
 		/*int16_t sRemainingRentalTime =*/pkt.read<int16_t>();
+
+		if constexpr (__VERSION >= 1453)
+		{
+			// 1453: item başına +8 byte (snoxd SendMyInfo: uint32 unknown + uint32 nExpirationTime)
+			/*uint32_t unknown        =*/pkt.read<uint32_t>();
+			/*uint32_t nExpirationTime =*/pkt.read<uint32_t>();
+		}
 	}
 
 	m_fMsgSendTimeMove = 0;                     // Network ReQuest 타이머 초기화..
